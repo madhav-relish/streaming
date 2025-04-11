@@ -1,8 +1,33 @@
 "use client";
 
 import { useState } from "react";
+import React from "react";
 
 import { api } from "@/trpc/react";
+
+type ShowProps = {
+  title: string;
+  overview: string;
+  streamingOptions: { link: string }[];
+};
+
+const ShowCard: React.FC<ShowProps> = ({ title, overview, streamingOptions }) => {
+  return (
+    <div className="p-4 border rounded shadow-md bg-white">
+      <h2 className="text-xl font-bold mb-2">{title}</h2>
+      <p className="text-gray-700 mb-4">{overview}</p>
+      <ul className="list-disc pl-5">
+        {streamingOptions.map((option, index) => (
+          <li key={index}>
+            <a href={option.link} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+              Watch here
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
 
 export function LatestPost() {
 	const [latestPost] = api.post.getLatest.useSuspenseQuery();
@@ -48,3 +73,5 @@ export function LatestPost() {
 		</div>
 	);
 }
+
+export default ShowCard;
