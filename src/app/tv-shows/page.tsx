@@ -1,7 +1,6 @@
-import { ContentGrid } from "@/components/content/content-grid";
-import { ContentPagination } from "@/components/content/content-pagination";
 import { auth } from "@/server/auth";
 import { streamingService } from "@/server/services/streaming-service";
+import { InfiniteScrollTvShows } from "@/components/content/infinite-scroll-tv-shows";
 
 export const metadata = {
   title: "TV Shows | StreamHub",
@@ -10,25 +9,14 @@ export const metadata = {
 
 export const dynamic = 'force-dynamic';
 
-interface TvShowsPageProps {
-  searchParams: {
-    page?: string;
-  };
-}
-
-export default async function TvShowsPage({ searchParams }: TvShowsPageProps) {
+export default async function TvShowsPage() {
   const session = await auth();
-  const currentPage = Number(searchParams.page) || 1;
   const itemsPerPage = 30;
   const country = "in"; // Use India as the default country
 
   try {
-    // Fetch TV shows from the database (or API if not cached)
-    const tvShows = await streamingService.getPopularTvShows(country, currentPage, itemsPerPage);
-
-    // Get total count for pagination
-    const totalCount = await streamingService.getTvShowCount(country);
-    const totalPages = Math.ceil(totalCount / itemsPerPage) || 1;
+    // Fetch initial TV shows from the database (or API if not cached)
+    const tvShows = await streamingService.getPopularTvShows(country, 1, itemsPerPage);
 
     // Format TV show data for content grid
     const formattedTvShows = tvShows.map((tvShow) => ({
@@ -264,8 +252,11 @@ export default async function TvShowsPage({ searchParams }: TvShowsPageProps) {
       return (
         <div className="container py-8">
           <h1 className="text-3xl font-bold mb-6">TV Shows</h1>
-          <ContentGrid items={generateMoreTvShows(itemsPerPage)} />
-          <ContentPagination currentPage={currentPage} totalPages={mockTotalPages} />
+          <InfiniteScrollTvShows
+            initialTvShows={generateMoreTvShows(itemsPerPage)}
+            userId={session?.user?.id || null}
+            useMockData={true}
+          />
         </div>
       );
     }
@@ -273,8 +264,10 @@ export default async function TvShowsPage({ searchParams }: TvShowsPageProps) {
     return (
       <div className="container py-8">
         <h1 className="text-3xl font-bold mb-6">TV Shows</h1>
-        <ContentGrid items={formattedTvShows} />
-        <ContentPagination currentPage={currentPage} totalPages={totalPages} />
+        <InfiniteScrollTvShows
+          initialTvShows={formattedTvShows}
+          userId={session?.user?.id || null}
+        />
       </div>
     );
   } catch (error) {

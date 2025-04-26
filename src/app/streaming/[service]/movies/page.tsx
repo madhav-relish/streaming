@@ -1,7 +1,7 @@
 import { auth } from "@/server/auth";
 import { streamingService } from "@/server/services/streaming-service";
-import { ContentGrid } from "@/components/content/content-grid";
 import { streamingServices } from "@/lib/streaming-services";
+import { InfiniteScrollService } from "@/components/content/infinite-scroll-service";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 
@@ -67,10 +67,11 @@ export default async function StreamingServiceMoviesPage({ params }: StreamingSe
           <h1 className="text-3xl font-bold">{serviceInfo.name} Movies</h1>
         </div>
 
-        <ContentGrid
-          items={formattedMovies}
+        <InfiniteScrollService
+          initialContent={formattedMovies}
+          service={service}
+          contentType="movie"
           userId={session?.user?.id || null}
-          emptyMessage={`No movies found on ${serviceInfo.name}`}
         />
       </div>
     );

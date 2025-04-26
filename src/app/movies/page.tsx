@@ -1,7 +1,6 @@
-import { ContentGrid } from "@/components/content/content-grid";
-import { ContentPagination } from "@/components/content/content-pagination";
 import { auth } from "@/server/auth";
 import { streamingService } from "@/server/services/streaming-service";
+import { InfiniteScrollMovies } from "@/components/content/infinite-scroll-movies";
 
 export const metadata = {
   title: "Movies | StreamHub",
@@ -10,25 +9,14 @@ export const metadata = {
 
 export const dynamic = 'force-dynamic';
 
-interface MoviesPageProps {
-  searchParams: {
-    page?: string;
-  };
-}
-
-export default async function MoviesPage({ searchParams }: MoviesPageProps) {
+export default async function MoviesPage() {
   const session = await auth();
-  const currentPage = Number(searchParams.page) || 1;
   const itemsPerPage = 30;
   const country = "in"; // Use India as the default country
 
   try {
-    // Fetch movies from the database (or API if not cached)
-    const movies = await streamingService.getPopularMovies(country, currentPage, itemsPerPage);
-
-    // Get total count for pagination
-    const totalCount = await streamingService.getMovieCount(country);
-    const totalPages = Math.ceil(totalCount / itemsPerPage) || 1;
+    // Fetch initial movies from the database (or API if not cached)
+    const movies = await streamingService.getPopularMovies(country, 1, itemsPerPage);
 
     // Format movie data for content grid
     const formattedMovies = movies.map((movie) => ({
@@ -114,13 +102,14 @@ export default async function MoviesPage({ searchParams }: MoviesPageProps) {
         return result.slice(0, count);
       };
 
-      const mockTotalPages = 10; // Simulate 10 pages of mock data
-
       return (
         <div className="container py-8">
           <h1 className="text-3xl font-bold mb-6">Movies</h1>
-          <ContentGrid items={generateMoreMovies(itemsPerPage)} />
-          <ContentPagination currentPage={currentPage} totalPages={mockTotalPages} />
+          <InfiniteScrollMovies
+            initialMovies={generateMoreMovies(itemsPerPage)}
+            userId={session?.user?.id || null}
+            useMockData={true}
+          />
         </div>
       );
     }
@@ -128,8 +117,10 @@ export default async function MoviesPage({ searchParams }: MoviesPageProps) {
     return (
       <div className="container py-8">
         <h1 className="text-3xl font-bold mb-6">Movies</h1>
-        <ContentGrid items={formattedMovies} />
-        <ContentPagination currentPage={currentPage} totalPages={totalPages} />
+        <InfiniteScrollMovies
+          initialMovies={formattedMovies}
+          userId={session?.user?.id || null}
+        />
       </div>
     );
   } catch (error) {

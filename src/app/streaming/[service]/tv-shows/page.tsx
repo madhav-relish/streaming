@@ -1,7 +1,7 @@
 import { auth } from "@/server/auth";
 import { streamingService } from "@/server/services/streaming-service";
-import { ContentGrid } from "@/components/content/content-grid";
 import { streamingServices } from "@/lib/streaming-services";
+import { InfiniteScrollService } from "@/components/content/infinite-scroll-service";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 
@@ -67,10 +67,11 @@ export default async function StreamingServiceTvShowsPage({ params }: StreamingS
           <h1 className="text-3xl font-bold">{serviceInfo.name} TV Shows</h1>
         </div>
 
-        <ContentGrid
-          items={formattedTvShows}
+        <InfiniteScrollService
+          initialContent={formattedTvShows}
+          service={service}
+          contentType="series"
           userId={session?.user?.id || null}
-          emptyMessage={`No TV shows found on ${serviceInfo.name}`}
         />
       </div>
     );
