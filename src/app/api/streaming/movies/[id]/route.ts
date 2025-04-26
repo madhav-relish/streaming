@@ -20,7 +20,7 @@ export async function GET(
     const session = await auth();
     const { id } = params;
     const searchParams = request.nextUrl.searchParams;
-    const country = searchParams.get("country") || "us";
+    const country = searchParams.get("country") || "in";
 
     const movie = await streamingService.getMovie(id, country);
 

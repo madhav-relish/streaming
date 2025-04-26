@@ -13,14 +13,14 @@ export default async function Home() {
 	const session = await auth();
 
 	try {
-		// Fetch featured content for hero section (The Godfather)
-		const featuredContent = await streamingService.getMovie("tt0068646", "us");
+		// Fetch featured content for hero section (using an Indian movie)
+		const featuredContent = await streamingService.getMovie("tt8108198", "in"); // Drishyam 2
 
-		// Fetch popular movies
-		const popularMovies = await streamingService.getPopularMovies("us", 1, 20);
+		// Fetch popular movies from India
+		const popularMovies = await streamingService.getPopularMovies("in", 1, 20);
 
-		// Fetch popular TV shows
-		const popularTvShows = await streamingService.getPopularTvShows("us", 1, 20);
+		// Fetch popular TV shows from India
+		const popularTvShows = await streamingService.getPopularTvShows("in", 1, 20);
 
 		// Format movie data for content grid
 		const formatMovieData = (movies: any[]) => {
@@ -72,192 +72,33 @@ export default async function Home() {
 			}));
 		};
 
-		// If we don't have enough data from the database yet, use mock data
-		const useMockData = popularMovies.length < 5 || popularTvShows.length < 5;
+		// Always use real data from the API
 
-		let formattedMovies = [];
-		let formattedTvShows = [];
-		let trendingContent = [];
+		// Format the data from the API
+		const formattedMovies = formatMovieData(popularMovies);
+		const formattedTvShows = formatTvShowData(popularTvShows);
 
-		if (useMockData) {
-			// Mock data for content sections
-			const mockMovies = [
-				{
-					id: "tt0111161",
-					title: "The Shawshank Redemption",
-					posterPath: "/q6y0Go1tsGEsmtFryDOJo3dEmqu.jpg",
-					type: "movie" as const,
-					year: "1994",
-					rating: 8.7,
-					streamingServices: ["netflix", "hbo"],
-					fullContent: {
-						overview: "Framed in the 1940s for the double murder of his wife and her lover, upstanding banker Andy Dufresne begins a new life at the Shawshank prison, where he puts his accounting skills to work for an amoral warden.",
-						backdropPath: "/kXfqcdQKsToO0OUXHcrrNCHDBzO.jpg",
-						releaseDate: "1994-09-23",
-						runtime: 142,
-						genres: [
-							{ id: "18", name: "Drama" },
-							{ id: "80", name: "Crime" }
-						],
-						streamingServices: [
-							{ name: "Netflix", url: "https://www.netflix.com/title/tt0111161" },
-							{ name: "HBO Max", url: "https://www.hbomax.com/feature/urn:hbo:feature:GXdu2ZAglVJuAuwEAADbA" }
-						]
-					}
-				},
-				{
-					id: "tt0068646",
-					title: "The Godfather",
-					posterPath: "/3bhkrj58Vtu7enYsRolD1fZdja1.jpg",
-					type: "movie" as const,
-					year: "1972",
-					rating: 8.7,
-					streamingServices: ["paramount"],
-					fullContent: {
-						overview: "Spanning the years 1945 to 1955, a chronicle of the fictional Italian-American Corleone crime family. When organized crime family patriarch, Vito Corleone barely survives an attempt on his life, his youngest son, Michael steps in to take care of the would-be killers, launching a campaign of bloody revenge.",
-						backdropPath: "/tmU7GeKVybMWFButWEGl2M4GeiP.jpg",
-						releaseDate: "1972-03-14",
-						runtime: 175,
-						genres: [
-							{ id: "18", name: "Drama" },
-							{ id: "80", name: "Crime" }
-						],
-						streamingServices: [
-							{ name: "Paramount+", url: "https://www.paramountplus.com/movies/video/QwP_Nx7681SnCBrjmNXOzSfbmBCvRR_l/" }
-						]
-					}
-				},
-				{
-					id: "tt0468569",
-					title: "The Dark Knight",
-					posterPath: "/qJ2tW6WMUDux911r6m7haRef0WH.jpg",
-					type: "movie" as const,
-					year: "2008",
-					rating: 8.5,
-					streamingServices: ["hbo", "netflix"],
-				},
-				{
-					id: "tt0167260",
-					title: "The Lord of the Rings: The Return of the King",
-					posterPath: "/rCzpDGLbOoPwLjy3OAm5NUPOTrC.jpg",
-					type: "movie" as const,
-					year: "2003",
-					rating: 8.5,
-					streamingServices: ["hbo", "prime"],
-				},
-				{
-					id: "tt0110912",
-					title: "Pulp Fiction",
-					posterPath: "/d5iIlFn5s0ImszYzBPb8JPIfbXD.jpg",
-					type: "movie" as const,
-					year: "1994",
-					rating: 8.5,
-					streamingServices: ["netflix"],
-				},
-			];
-
-			const mockTvShows = [
-				{
-					id: "tt0944947",
-					title: "Game of Thrones",
-					posterPath: "/u3bZgnGQ9T01sWNhyveQz0wH0Hl.jpg",
-					type: "tv" as const,
-					year: "2011",
-					rating: 8.4,
-					streamingServices: ["hbo"],
-				},
-				{
-					id: "tt0903747",
-					title: "Breaking Bad",
-					posterPath: "/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
-					type: "tv" as const,
-					year: "2008",
-					rating: 8.5,
-					streamingServices: ["netflix"],
-				},
-				{
-					id: "tt0108778",
-					title: "Friends",
-					posterPath: "/f496cm9enuEsZkSPzCwnTESEK5s.jpg",
-					type: "tv" as const,
-					year: "1994",
-					rating: 8.4,
-					streamingServices: ["hbo", "netflix"],
-				},
-				{
-					id: "tt1475582",
-					title: "Sherlock",
-					posterPath: "/7WTsnHkbA0zBBsW5HaNudiHVt0B.jpg",
-					type: "tv" as const,
-					year: "2010",
-					rating: 8.4,
-					streamingServices: ["netflix", "prime"],
-				},
-				{
-					id: "tt0386676",
-					title: "The Office",
-					posterPath: "/qWnJzyZhyy74gjpSjIXWmuk0ifX.jpg",
-					type: "tv" as const,
-					year: "2005",
-					rating: 8.3,
-					streamingServices: ["peacock", "netflix"],
-				},
-			];
-
-			// Define a generic type for content items
-			type ContentItem = {
-				id: string;
-				title: string;
-				posterPath: string;
-				type: "movie" | "tv";
-				year: string;
-				rating: number;
-				streamingServices: string[];
-			};
-
-			// Generate more mock data by duplicating and slightly modifying existing items
-			const generateMoreMockData = <T extends ContentItem>(items: T[], count: number): T[] => {
-				const result = [...items];
-				while (result.length < count) {
-					const originalItems = items.slice(0, Math.min(items.length, count - result.length));
-					const newItems = originalItems.map(item => ({
-						...item,
-						id: item.id + "_" + result.length,
-						rating: Math.round((item.rating - 0.1 + Math.random() * 0.2) * 10) / 10,
-					}));
-					result.push(...newItems);
-				}
-				return result.slice(0, count);
-			};
-
-			formattedMovies = generateMoreMockData(mockMovies, 20);
-			formattedTvShows = generateMoreMockData(mockTvShows, 20);
-
-			// Mix movies and TV shows for trending section
-			const trendingItems: ContentItem[] = [
-				...generateMoreMockData(mockMovies, 10),
-				...generateMoreMockData(mockTvShows, 10)
-			];
-			// Shuffle the trending items
-			trendingContent = trendingItems.sort(() => Math.random() - 0.5);
-		} else {
-			// Use real data from the database
-			formattedMovies = formatMovieData(popularMovies);
-			formattedTvShows = formatTvShowData(popularTvShows);
-
-			// Mix movies and TV shows for trending section
-			trendingContent = [...formattedMovies.slice(0, 10), ...formattedTvShows.slice(0, 10)]
-				.sort(() => Math.random() - 0.5);
-		}
+		// Combine movies and TV shows for trending section
+		const trendingContent = [
+			...formatMovieData(popularMovies.slice(0, 5)),
+			...formatTvShowData(popularTvShows.slice(0, 5)),
+		].sort(() => Math.random() - 0.5);
 
 		// Default values for featured content if database fetch fails
 		const defaultFeaturedContent = {
-			id: "tt0068646",
-			title: "The Godfather",
-			overview: "Spanning the years 1945 to 1955, a chronicle of the fictional Italian-American Corleone crime family. When organized crime family patriarch, Vito Corleone barely survives an attempt on his life, his youngest son, Michael steps in to take care of the would-be killers, launching a campaign of bloody revenge.",
-			backdropPath: "/3bhkrj58Vtu7enYsRolD1fZdja1.jpg",
-			releaseDate: new Date("1972-03-14"),
-			streamingOptions: []
+			id: "tt8108198",
+			title: "Drishyam 2",
+			overview: "7 years after the case related to Vijay Salgaonkar and his family was closed, a series of unexpected events bring a truth to light that threatens to change everything for the Salgaonkars.",
+			backdropPath: "/2JeIqQpIwdEwwsQJ2QKmJwdZl0W.jpg",
+			releaseDate: new Date("2022-11-18"),
+			streamingOptions: [
+				{
+					provider: "hotstar",
+					region: "in",
+					url: "https://www.hotstar.com/in/movies/drishyam-2/1260124916",
+					type: "SUBSCRIPTION"
+				}
+			]
 		};
 
 		// Extract streaming services for the featured content
@@ -279,14 +120,11 @@ export default async function Home() {
 					<HeroSection
 						title={heroContent.title}
 						overview={heroContent.overview || ""}
-						backdropPath={heroContent.backdropPath || "/3bhkrj58Vtu7enYsRolD1fZdja1.jpg"}
+						backdropPath={heroContent.backdropPath || "/2JeIqQpIwdEwwsQJ2QKmJwdZl0W.jpg"}
 						id={heroContent.id}
 						type="movie"
 						year={releaseYear}
-						streamingServices={featuredStreamingServices.length > 0 ? featuredStreamingServices : [
-							{ name: "Netflix", url: "https://www.netflix.com/title/tt0068646" },
-							{ name: "Prime", url: "https://www.amazon.com/gp/video/detail/tt0068646" },
-						]}
+						streamingServices={featuredStreamingServices.length > 0 ? featuredStreamingServices : []}
 					/>
 
 					{/* Popular Movies Section */}

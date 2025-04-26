@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { Play, Plus } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { getImageUrl, truncateText } from "@/lib/utils";
+import { truncateText } from "@/lib/utils";
+import { SafeImage } from "@/components/ui/safe-image";
 
 interface HeroSectionProps {
   title: string;
@@ -38,18 +39,12 @@ export function HeroSection({
     <div className="relative w-full h-[70vh] overflow-hidden">
       {/* Backdrop Image */}
       <div className="absolute inset-0 bg-muted">
-        <Image
-          src={getImageUrl(backdropPath, "backdrop")}
+        <SafeImage
+          src={backdropPath}
           alt={title}
           fill
           className="object-cover"
           priority
-          onError={(e) => {
-            // Fallback to a placeholder if the image fails to load
-            const target = e.target as HTMLImageElement;
-            target.src = "https://placehold.co/1280x720?text=" + encodeURIComponent(title);
-            target.onerror = null; // Prevent infinite error loop
-          }}
         />
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/10" />
@@ -66,19 +61,23 @@ export function HeroSection({
           </p>
 
           <div className="flex flex-wrap gap-3 pt-2">
-            <Button asChild size="lg">
-              <Link href={watchUrl}>
-                <Play className="mr-2 h-5 w-5" />
-                Watch Now
-              </Link>
-            </Button>
+            {streamingServices.length > 0 && (
+              <Button asChild size="lg">
+                <Link href={watchUrl}>
+                  <Play className="mr-2 h-5 w-5" />
+                  Watch Now
+                </Link>
+              </Button>
+            )}
 
-            <Button variant="outline" size="lg" onClick={onAddToWatchlist}>
-              <Plus className="mr-2 h-5 w-5" />
-              Add to Watchlist
-            </Button>
+            {onAddToWatchlist && (
+              <Button variant="outline" size="lg" onClick={onAddToWatchlist}>
+                <Plus className="mr-2 h-5 w-5" />
+                Add to Watchlist
+              </Button>
+            )}
 
-            <Button variant="ghost" size="lg" asChild>
+            <Button variant={streamingServices.length > 0 ? "ghost" : "default"} size="lg" asChild>
               <Link href={detailsUrl}>More Info</Link>
             </Button>
           </div>

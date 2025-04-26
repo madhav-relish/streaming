@@ -1,5 +1,4 @@
 import React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Play, Star, X, Info } from "lucide-react";
 
@@ -13,7 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getImageUrl, formatRuntime } from "@/lib/utils";
+import { formatRuntime } from "@/lib/utils";
+import { SafeImage } from "@/components/ui/safe-image";
 import { WatchlistButton } from "@/components/watchlist/watchlist-button";
 
 interface ContentPreviewModalProps {
@@ -61,8 +61,8 @@ export function ContentPreviewModal({
 
         {/* Backdrop Image */}
         <div className="relative w-full h-[40vh] overflow-hidden">
-          <Image
-            src={getImageUrl(content.backdropPath, "backdrop")}
+          <SafeImage
+            src={content.backdropPath}
             alt={content.title}
             fill
             className="object-cover"
@@ -76,8 +76,8 @@ export function ContentPreviewModal({
             <div className="flex flex-col md:flex-row gap-4">
               {/* Poster (hidden on small screens) */}
               <div className="hidden md:block flex-shrink-0 w-32 rounded-lg overflow-hidden shadow-lg">
-                <Image
-                  src={getImageUrl(content.posterPath, "poster")}
+                <SafeImage
+                  src={content.posterPath}
                   alt={content.title}
                   width={128}
                   height={192}

@@ -7,6 +7,7 @@ import { TRPCReactProvider } from "@/trpc/react";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { Toaster } from "@/components/ui/toaster";
+import { ThemeProvider } from "@/components/theme/theme-provider";
 import { auth } from "@/server/auth";
 
 export const metadata: Metadata = {
@@ -26,16 +27,18 @@ export default async function RootLayout({
 	const session = await auth();
 
 	return (
-		<html lang="en" className={`${geist.variable}`}>
+		<html lang="en" className={`${geist.variable}`} suppressHydrationWarning>
 			<body className="min-h-screen bg-background font-sans antialiased">
-				<TRPCReactProvider>
-					<div className="relative flex min-h-screen flex-col">
-						<SiteHeader user={session?.user} />
-						<main className="flex-1">{children}</main>
-						<SiteFooter />
-					</div>
-					<Toaster />
-				</TRPCReactProvider>
+				<ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+					<TRPCReactProvider>
+						<div className="relative flex min-h-screen flex-col">
+							<SiteHeader user={session?.user} />
+							<main className="flex-1">{children}</main>
+							<SiteFooter />
+						</div>
+						<Toaster />
+					</TRPCReactProvider>
+				</ThemeProvider>
 			</body>
 		</html>
 	);

@@ -12,6 +12,7 @@
 		"db:migrate": "prisma migrate deploy",
 		"db:push": "prisma db push",
 		"db:studio": "prisma studio",
+		"db:refresh-india": "tsx scripts/refresh-indian-content.ts",
 		"dev": "next dev --turbo",
 		"postinstall": "prisma generate",
 		"preview": "next build && next start",
@@ -88,7 +89,8 @@
 		"postcss": "^8.5.3",
 		"prisma": "^6.5.0",
 		"tailwindcss": "^4.0.15",
-		"typescript": "^5.8.2"
+		"tsx": "^4.19.3",
+		"typescript": "^5.8.3"
 	},
 	"ct3aMetadata": {
 		"initVersion": "7.39.3"

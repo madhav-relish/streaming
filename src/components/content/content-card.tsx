@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { Heart, Loader2, Trash, Star } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { getImageUrl, truncateText } from "@/lib/utils";
+import { truncateText } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { SafeImage } from "@/components/ui/safe-image";
 import {
   Tooltip,
   TooltipContent,
@@ -57,7 +57,6 @@ export function ContentCard({
 }: ContentCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const href = type === "movie" ? `/movies/${id}` : `/tv-shows/${id}`;
-  const imageUrl = getImageUrl(posterPath, "poster");
 
   // Prepare content data for modal
   const modalContent = fullContent
@@ -84,18 +83,12 @@ export function ContentCard({
           onClick={() => modalContent && setIsModalOpen(true)}
         >
           <div className="aspect-[2/3] relative overflow-hidden bg-muted">
-            <Image
-              src={imageUrl}
+            <SafeImage
+              src={posterPath}
               alt={title}
               fill
               className="object-cover transition-transform group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              onError={(e) => {
-                // Fallback to a placeholder if the image fails to load
-                const target = e.target as HTMLImageElement;
-                target.src = "https://placehold.co/342x513?text=" + encodeURIComponent(title.substring(0, 20));
-                target.onerror = null; // Prevent infinite error loop
-              }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </div>
@@ -125,13 +118,19 @@ export function ContentCard({
               </Badge>
             )}
           </div>
-          {streamingServices.length > 0 && (
+          {streamingServices && streamingServices.length > 0 ? (
             <div className="flex flex-wrap gap-1 mt-2">
               {streamingServices.map((service) => (
                 <Badge key={service} variant="secondary" className="text-xs">
                   {service}
                 </Badge>
               ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1 mt-2">
+              <Badge variant="outline" className="text-xs text-muted-foreground">
+                No streaming info
+              </Badge>
             </div>
           )}
         </CardContent>

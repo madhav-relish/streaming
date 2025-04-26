@@ -15,6 +15,7 @@ export type StreamingService = {
 };
 
 export const streamingServices: Record<string, StreamingService> = {
+  // Global streaming services
   netflix: {
     name: "Netflix",
     logo: "/images/streaming/netflix.png",
@@ -23,13 +24,64 @@ export const streamingServices: Record<string, StreamingService> = {
   prime: {
     name: "Amazon Prime",
     logo: "/images/streaming/prime.png",
-    url: "https://www.amazon.com/Prime-Video/",
+    url: "https://www.primevideo.com/",
   },
   disney: {
-    name: "Disney+",
+    name: "Disney+ Hotstar",
     logo: "/images/streaming/disney.png",
-    url: "https://www.disneyplus.com/",
+    url: "https://www.hotstar.com/",
   },
+  apple: {
+    name: "Apple TV+",
+    logo: "/images/streaming/apple.png",
+    url: "https://tv.apple.com/",
+  },
+
+  // Indian streaming services
+  hotstar: {
+    name: "Hotstar",
+    logo: "/images/streaming/hotstar.png",
+    url: "https://www.hotstar.com/",
+  },
+  sonyliv: {
+    name: "SonyLIV",
+    logo: "/images/streaming/sonyliv.png",
+    url: "https://www.sonyliv.com/",
+  },
+  zee5: {
+    name: "ZEE5",
+    logo: "/images/streaming/zee5.png",
+    url: "https://www.zee5.com/",
+  },
+  jiocinema: {
+    name: "JioCinema",
+    logo: "/images/streaming/jiocinema.png",
+    url: "https://www.jiocinema.com/",
+  },
+  mxplayer: {
+    name: "MX Player",
+    logo: "/images/streaming/mxplayer.png",
+    url: "https://www.mxplayer.in/",
+  },
+  voot: {
+    name: "Voot",
+    logo: "/images/streaming/voot.png",
+    url: "https://www.voot.com/",
+  },
+  altbalaji: {
+    name: "ALTBalaji",
+    logo: "/images/streaming/altbalaji.png",
+    url: "https://www.altbalaji.com/",
+  },
+
+  // Other international services available in India
+  mubi: {
+    name: "MUBI",
+    logo: "/images/streaming/mubi.png",
+    url: "https://mubi.com/",
+  },
+
+  // US services (kept for compatibility)
   hbo: {
     name: "HBO Max",
     logo: "/images/streaming/hbo.png",
@@ -39,11 +91,6 @@ export const streamingServices: Record<string, StreamingService> = {
     name: "Hulu",
     logo: "/images/streaming/hulu.png",
     url: "https://www.hulu.com/",
-  },
-  apple: {
-    name: "Apple TV+",
-    logo: "/images/streaming/apple.png",
-    url: "https://www.apple.com/apple-tv-plus/",
   },
   paramount: {
     name: "Paramount+",

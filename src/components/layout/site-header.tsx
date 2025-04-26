@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MainNav } from "@/components/layout/main-nav";
 import { UserNav } from "@/components/layout/user-nav";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 interface SiteHeaderProps {
   user?: {
@@ -47,6 +48,7 @@ export function SiteHeader({ user }: SiteHeaderProps) {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </form>
+          <ThemeToggle />
           <UserNav user={user} />
         </div>
       </div>

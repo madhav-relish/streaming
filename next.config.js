@@ -7,14 +7,27 @@ import "./src/env.js";
 /** @type {import("next").NextConfig} */
 const config = {
   images: {
-    domains: ["image.tmdb.org"],
+    domains: ["image.tmdb.org", "cdn.movieofthenight.com", "placehold.co"],
     remotePatterns: [
       {
         protocol: "https",
         hostname: "image.tmdb.org",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "cdn.movieofthenight.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "placehold.co",
+        pathname: "/**",
+      },
     ],
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
 };
 

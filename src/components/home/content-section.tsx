@@ -60,33 +60,42 @@ export function ContentSection({
             </Button>
           )}
         </div>
-        <ScrollArea className="w-full whitespace-nowrap pb-4">
-          <div className="flex space-x-4">
-            {items.map((item) => (
-              <div key={`${item.type}-${item.id}`} className="w-[200px] shrink-0">
-                <ContentCard
-                  id={item.id}
-                  title={item.title}
-                  posterPath={item.posterPath}
-                  type={item.type}
-                  year={item.year}
-                  rating={item.rating}
-                  streamingServices={item.streamingServices}
-                  isInWatchlist={watchlistIds?.includes(item.id)}
-                  onAddToWatchlist={
-                    onAddToWatchlist
-                      ? () => onAddToWatchlist(item.id, item.type)
-                      : undefined
-                  }
-                  userId={userId}
-                  fullContent={item.fullContent}
-                  watchlistItemId={watchlistIds?.includes(item.id) ? item.id : ""}
-                />
-              </div>
-            ))}
+        {items.length === 0 ? (
+          <div className="py-12 text-center">
+            <h3 className="text-lg font-medium mb-2">No content found</h3>
+            <p className="text-muted-foreground">
+              We couldn't find any {title.toLowerCase()} to display at this time.
+            </p>
           </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        ) : (
+          <ScrollArea className="w-full whitespace-nowrap pb-4">
+            <div className="flex space-x-4">
+              {items.map((item) => (
+                <div key={`${item.type}-${item.id}`} className="w-[200px] shrink-0">
+                  <ContentCard
+                    id={item.id}
+                    title={item.title}
+                    posterPath={item.posterPath}
+                    type={item.type}
+                    year={item.year}
+                    rating={item.rating}
+                    streamingServices={item.streamingServices}
+                    isInWatchlist={watchlistIds?.includes(item.id)}
+                    onAddToWatchlist={
+                      onAddToWatchlist
+                        ? () => onAddToWatchlist(item.id, item.type)
+                        : undefined
+                    }
+                    userId={userId}
+                    fullContent={item.fullContent}
+                    watchlistItemId={watchlistIds?.includes(item.id) ? item.id : ""}
+                  />
+                </div>
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        )}
       </div>
     </section>
   );

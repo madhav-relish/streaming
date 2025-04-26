@@ -145,7 +145,7 @@ model UserPreference {
     id            String   @id @default(cuid())
     user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
     userId        String   @unique
-    region        String   @default("us") // Default region for content availability
+    region        String   @default("in") // Default region for content availability (India)
     preferredGenres Int[]    // Array of genre IDs
     createdAt     DateTime @default(now())
     updatedAt     DateTime @updatedAt

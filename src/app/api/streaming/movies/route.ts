@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     const searchParams = request.nextUrl.searchParams;
-    const country = searchParams.get("country") || "us";
+    const country = searchParams.get("country") || "in";
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
 

@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const session = await auth();
     const searchParams = request.nextUrl.searchParams;
     const query = searchParams.get("q");
-    const country = searchParams.get("country") || "us";
+    const country = searchParams.get("country") || "in";
     const type = searchParams.get("type") as "movie" | "series" | undefined;
     const page = parseInt(searchParams.get("page") || "1");
 

@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import * as streamingAvailability from "streaming-availability";
 import { env } from "@/env";
-import { Movie } from "@/types/movie";
+import type { Movie } from "../../types/movie";
 
 const prisma = new PrismaClient();
 
@@ -396,18 +396,29 @@ export class StreamingService {
       const posterPath = movieData.imageSet?.verticalPoster?.w480 || null;
       const backdropPath = movieData.imageSet?.horizontalBackdrop?.w1080 || null;
 
+      // Check if the movie already exists
+      const existingMovie = await prisma.movie.findUnique({
+        where: { id: movieData.imdbId },
+        include: {
+          genres: true,
+          streamingOptions: {
+            where: { region: country },
+          },
+        },
+      });
+
       // Create or update the movie
       const movie = await prisma.movie.upsert({
         where: { id: movieData.imdbId },
         update: {
           title: movieData.title,
           overview: movieData.overview || null,
-          posterPath: posterPath,
-          backdropPath: backdropPath,
-          releaseDate: movieData.releaseYear ? new Date(movieData.releaseYear, 0, 1) : null,
-          voteAverage: movieData.rating || null,
-          voteCount: null, // Not available in the new format
-          runtime: movieData.runtime || null,
+          posterPath: posterPath || existingMovie?.posterPath,
+          backdropPath: backdropPath || existingMovie?.backdropPath,
+          releaseDate: movieData.releaseYear ? new Date(movieData.releaseYear, 0, 1) : existingMovie?.releaseDate,
+          voteAverage: movieData.rating || existingMovie?.voteAverage,
+          voteCount: existingMovie?.voteCount, // Preserve existing vote count
+          runtime: movieData.runtime || existingMovie?.runtime,
           updatedAt: new Date(),
         },
         create: {
@@ -467,7 +478,22 @@ export class StreamingService {
 
       // Add streaming options
       try {
+        // First, delete existing streaming options for this movie and country
+        await prisma.streamingOption.deleteMany({
+          where: {
+            movieId: movie.id,
+            region: country,
+          },
+        });
+
+        // Then add the new streaming options
         for (const option of streamingOptions) {
+          // Check if the URL is valid
+          if (!option.url || option.url.trim() === "") {
+            console.warn(`Skipping invalid streaming URL for ${movie.title} on ${option.provider}`);
+            continue;
+          }
+
           await prisma.streamingOption.create({
             data: {
               provider: option.provider,
@@ -556,32 +582,53 @@ export class StreamingService {
       // Extract streaming options
       const streamingOptions = this.extractStreamingOptions(tvShowData, country);
 
+      // Check if the TV show already exists
+      const existingTvShow = await prisma.tvShow.findUnique({
+        where: { id: tvShowData.imdbId },
+        include: {
+          genres: true,
+          streamingOptions: {
+            where: { region: country },
+          },
+        },
+      });
+
+      // Get poster and backdrop paths
+      let posterPath = tvShowData.posterPath;
+      let backdropPath = tvShowData.backdropPath;
+
+      // For Rapid API format
+      if (tvShowData.imageSet) {
+        posterPath = tvShowData.imageSet.verticalPoster?.w480 || posterPath;
+        backdropPath = tvShowData.imageSet.horizontalBackdrop?.w1080 || backdropPath;
+      }
+
       // Create or update the TV show
       const tvShow = await prisma.tvShow.upsert({
         where: { id: tvShowData.imdbId },
         update: {
           title: tvShowData.title,
-          overview: tvShowData.overview,
-          posterPath: tvShowData.posterPath,
-          backdropPath: tvShowData.backdropPath,
-          firstAirDate: tvShowData.firstAirYear ? new Date(tvShowData.firstAirYear, 0, 1) : null,
-          lastAirDate: tvShowData.lastAirYear ? new Date(tvShowData.lastAirYear, 0, 1) : null,
-          voteAverage: tvShowData.tmdbRating,
-          voteCount: tvShowData.tmdbVotes,
-          numberOfSeasons: tvShowData.seasons?.length || 0,
-          numberOfEpisodes: tvShowData.episodeCount || 0,
+          overview: tvShowData.overview || existingTvShow?.overview,
+          posterPath: posterPath || existingTvShow?.posterPath,
+          backdropPath: backdropPath || existingTvShow?.backdropPath,
+          firstAirDate: tvShowData.firstAirYear ? new Date(tvShowData.firstAirYear, 0, 1) : existingTvShow?.firstAirDate,
+          lastAirDate: tvShowData.lastAirYear ? new Date(tvShowData.lastAirYear, 0, 1) : existingTvShow?.lastAirDate,
+          voteAverage: tvShowData.tmdbRating || tvShowData.rating || existingTvShow?.voteAverage,
+          voteCount: tvShowData.tmdbVotes || existingTvShow?.voteCount,
+          numberOfSeasons: tvShowData.seasons?.length || existingTvShow?.numberOfSeasons || 0,
+          numberOfEpisodes: tvShowData.episodeCount || existingTvShow?.numberOfEpisodes || 0,
           updatedAt: new Date(),
         },
         create: {
           id: tvShowData.imdbId,
           title: tvShowData.title,
-          overview: tvShowData.overview,
-          posterPath: tvShowData.posterPath,
-          backdropPath: tvShowData.backdropPath,
+          overview: tvShowData.overview || null,
+          posterPath: posterPath || null,
+          backdropPath: backdropPath || null,
           firstAirDate: tvShowData.firstAirYear ? new Date(tvShowData.firstAirYear, 0, 1) : null,
           lastAirDate: tvShowData.lastAirYear ? new Date(tvShowData.lastAirYear, 0, 1) : null,
-          voteAverage: tvShowData.tmdbRating,
-          voteCount: tvShowData.tmdbVotes,
+          voteAverage: tvShowData.tmdbRating || tvShowData.rating || null,
+          voteCount: tvShowData.tmdbVotes || null,
           numberOfSeasons: tvShowData.seasons?.length || 0,
           numberOfEpisodes: tvShowData.episodeCount || 0,
         },
@@ -610,18 +657,38 @@ export class StreamingService {
       }
 
       // Add streaming options
-      for (const option of streamingOptions) {
-        await prisma.streamingOption.create({
-          data: {
-            provider: option.provider,
-            region: option.region,
-            url: option.url,
-            type: option.type,
-            tvShow: {
-              connect: { id: tvShow.id },
-            },
+      try {
+        // First, delete existing streaming options for this TV show and country
+        await prisma.streamingOption.deleteMany({
+          where: {
+            tvShowId: tvShow.id,
+            region: country,
           },
         });
+
+        // Then add the new streaming options
+        for (const option of streamingOptions) {
+          // Check if the URL is valid
+          if (!option.url || option.url.trim() === "") {
+            console.warn(`Skipping invalid streaming URL for ${tvShow.title} on ${option.provider}`);
+            continue;
+          }
+
+          await prisma.streamingOption.create({
+            data: {
+              provider: option.provider,
+              region: option.region,
+              url: option.url,
+              type: option.type,
+              tvShow: {
+                connect: { id: tvShow.id },
+              },
+            },
+          });
+        }
+      } catch (streamingError) {
+        console.error("Error adding streaming options:", streamingError);
+        // Continue with the process even if streaming options fail
       }
 
       // Return the TV show with its relationships
@@ -659,8 +726,22 @@ export class StreamingService {
       for (const [provider, providerData] of Object.entries(countryStreamingInfo)) {
         // Each provider might have multiple options (subscription, rent, buy)
         for (const option of providerData as any[]) {
+          // Map provider names for India
+          let mappedProvider = provider;
+
+          // Map Disney+ to Hotstar for India
+          if (provider === "disney" && country === "in") {
+            mappedProvider = "hotstar";
+          }
+
+          // Skip if the URL is invalid
+          if (!option.link || option.link.trim() === "") {
+            console.warn(`Skipping invalid streaming URL for content on ${mappedProvider}`);
+            continue;
+          }
+
           options.push({
-            provider,
+            provider: mappedProvider,
             region: country,
             url: option.link || "",
             type: option.type || "SUBSCRIPTION",
@@ -689,11 +770,29 @@ export class StreamingService {
 
       // Iterate through each streaming option
       for (const option of countryStreamingOptions) {
+        if (!option.service || !option.service.id || !option.link) {
+          continue;
+        }
+
+        // Map service IDs to our supported providers
+        let provider = option.service.id;
+
+        // Map Disney+ Hotstar to our hotstar provider for India
+        if (provider === "disney" && country === "in") {
+          provider = "hotstar";
+        }
+
+        // Skip if the URL is invalid
+        if (!option.link || option.link.trim() === "") {
+          console.warn(`Skipping invalid streaming URL for content on ${provider}`);
+          continue;
+        }
+
         options.push({
-          provider: option.service.id,
+          provider: provider,
           region: country,
           url: option.link || "",
-          type: option.type.toUpperCase() || "SUBSCRIPTION",
+          type: option.type?.toUpperCase() || "SUBSCRIPTION",
         });
       }
     }
@@ -704,7 +803,7 @@ export class StreamingService {
   /**
    * Refresh all content data from the API (to be run as a scheduled job)
    */
-  async refreshAllContent(country = "us") {
+  async refreshAllContent(country = "in") {
     try {
       console.log("Starting content refresh job");
 
@@ -728,7 +827,7 @@ export class StreamingService {
           year: 1994,
           tmdbRating: 8.7,
           genres: [{ id: "18", name: "Drama" }, { id: "80", name: "Crime" }],
-          streamingInfo: { us: { netflix: [{ link: "https://www.netflix.com" }] } }
+          streamingInfo: { in: { netflix: [{ link: "https://www.netflix.com/title/tt0111161" }] } }
         },
         {
           imdbId: "tt0068646",
@@ -740,7 +839,31 @@ export class StreamingService {
           year: 1972,
           tmdbRating: 8.7,
           genres: [{ id: "18", name: "Drama" }, { id: "80", name: "Crime" }],
-          streamingInfo: { us: { paramount: [{ link: "https://www.paramountplus.com" }] } }
+          streamingInfo: { in: { prime: [{ link: "https://www.primevideo.com/detail/The-Godfather/0HBOP3JYN9Y3PBJ8TH1FQVS0XF" }] } }
+        },
+        {
+          imdbId: "tt8108198",
+          title: "Drishyam 2",
+          type: "movie",
+          overview: "7 years after the case related to Vijay Salgaonkar and his family was closed, a series of unexpected events bring a truth to light that threatens to change everything for the Salgaonkars.",
+          posterPath: "/iBR6Jd8vFJEZ3EpqjUMwLUZB1gd.jpg",
+          backdropPath: "/2JeIqQpIwdEwwsQJ2QKmJwdZl0W.jpg",
+          year: 2022,
+          tmdbRating: 7.8,
+          genres: [{ id: "18", name: "Drama" }, { id: "53", name: "Thriller" }],
+          streamingInfo: { in: { hotstar: [{ link: "https://www.hotstar.com/in/movies/drishyam-2/1260124916" }] } }
+        },
+        {
+          imdbId: "tt15430628",
+          title: "Panchayat",
+          type: "series",
+          overview: "A comedy-drama series about an engineering graduate who joins as a Panchayat secretary in a remote Indian village due to lack of better job options.",
+          posterPath: "/9UTWFxBKyPBIQWFJwTxBrCiL0R6.jpg",
+          backdropPath: "/5KbJQwRWbD2sSjUmbRkZJ5xpEG.jpg",
+          firstAirYear: 2020,
+          tmdbRating: 8.9,
+          genres: [{ id: "35", name: "Comedy" }, { id: "18", name: "Drama" }],
+          streamingInfo: { in: { prime: [{ link: "https://www.primevideo.com/detail/Panchayat/0KEP4A6DWRKFYQFTSU5RXHEAN2" }] } }
         }
       ];
 
