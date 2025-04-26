@@ -1,69 +1,282 @@
-import Link from "next/link";
-
-import { LatestPost } from "@/app/_components/post";
 import { auth } from "@/server/auth";
-import { HydrateClient, api } from "@/trpc/server";
+import { HydrateClient } from "@/trpc/server";
+import { streamingService } from "@/server/services/streaming-service";
+
+import { HeroSection } from "@/components/home/hero-section";
+import { ContentSection } from "@/components/home/content-section";
 
 export default async function Home() {
-	const hello = await api.post.hello({ text: "from tRPC" });
+	// Get user session for personalization (will use later)
+	// We're not using this yet, but will be needed for personalized recommendations
+	// and watchlist functionality
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const session = await auth();
 
-	if (session?.user) {
-		void api.post.getLatest.prefetch();
-	}
+	try {
+		// Fetch featured content for hero section (The Godfather)
+		const featuredContent = await streamingService.getMovie("tt0068646", "us");
 
-	return (
-		<HydrateClient>
-			<main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
-				<div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
-					<h1 className="font-extrabold text-5xl tracking-tight sm:text-[5rem]">
-						Create <span className="text-[hsl(280,100%,70%)]">T3</span> App
-					</h1>
-					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
-						<Link
-							className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 hover:bg-white/20"
-							href="https://create.t3.gg/en/usage/first-steps"
-							target="_blank"
-						>
-							<h3 className="font-bold text-2xl">First Steps →</h3>
-							<div className="text-lg">
-								Just the basics - Everything you need to know to set up your
-								database and authentication.
-							</div>
-						</Link>
-						<Link
-							className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 hover:bg-white/20"
-							href="https://create.t3.gg/en/introduction"
-							target="_blank"
-						>
-							<h3 className="font-bold text-2xl">Documentation →</h3>
-							<div className="text-lg">
-								Learn more about Create T3 App, the libraries it uses, and how
-								to deploy it.
-							</div>
-						</Link>
-					</div>
-					<div className="flex flex-col items-center gap-2">
-						<p className="text-2xl text-white">
-							{hello ? hello.greeting : "Loading tRPC query..."}
-						</p>
+		// Fetch popular movies
+		const popularMovies = await streamingService.getPopularMovies("us", 1, 20);
 
-						<div className="flex flex-col items-center justify-center gap-4">
-							<p className="text-center text-2xl text-white">
-								{session && <span>Logged in as {session.user?.name}</span>}
-							</p>
-							<Link
-								href={session ? "/api/auth/signout" : "/api/auth/signin"}
-								className="rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
-							>
-								{session ? "Sign out" : "Sign in"}
-							</Link>
-						</div>
-					</div>
+		// Fetch popular TV shows
+		const popularTvShows = await streamingService.getPopularTvShows("us", 1, 20);
 
-					{session?.user && <LatestPost />}
+		// Format movie data for content grid
+		const formatMovieData = (movies: any[]) => {
+			return movies.map((movie) => ({
+				id: movie.id,
+				title: movie.title,
+				posterPath: movie.posterPath,
+				type: "movie" as const,
+				year: movie.releaseDate ? new Date(movie.releaseDate).getFullYear().toString() : "",
+				rating: movie.voteAverage,
+				streamingServices: movie.streamingOptions.map((option: any) => option.provider),
+			}));
+		};
+
+		// Format TV show data for content grid
+		const formatTvShowData = (tvShows: any[]) => {
+			return tvShows.map((tvShow) => ({
+				id: tvShow.id,
+				title: tvShow.title,
+				posterPath: tvShow.posterPath,
+				type: "tv" as const,
+				year: tvShow.firstAirDate ? new Date(tvShow.firstAirDate).getFullYear().toString() : "",
+				rating: tvShow.voteAverage,
+				streamingServices: tvShow.streamingOptions.map((option: any) => option.provider),
+			}));
+		};
+
+		// If we don't have enough data from the database yet, use mock data
+		const useMockData = popularMovies.length < 5 || popularTvShows.length < 5;
+
+		let formattedMovies = [];
+		let formattedTvShows = [];
+		let trendingContent = [];
+
+		if (useMockData) {
+			// Mock data for content sections
+			const mockMovies = [
+				{
+					id: "tt0111161",
+					title: "The Shawshank Redemption",
+					posterPath: "/q6y0Go1tsGEsmtFryDOJo3dEmqu.jpg",
+					type: "movie" as const,
+					year: "1994",
+					rating: 8.7,
+					streamingServices: ["netflix", "hbo"],
+				},
+				{
+					id: "tt0068646",
+					title: "The Godfather",
+					posterPath: "/3bhkrj58Vtu7enYsRolD1fZdja1.jpg",
+					type: "movie" as const,
+					year: "1972",
+					rating: 8.7,
+					streamingServices: ["paramount"],
+				},
+				{
+					id: "tt0468569",
+					title: "The Dark Knight",
+					posterPath: "/qJ2tW6WMUDux911r6m7haRef0WH.jpg",
+					type: "movie" as const,
+					year: "2008",
+					rating: 8.5,
+					streamingServices: ["hbo", "netflix"],
+				},
+				{
+					id: "tt0167260",
+					title: "The Lord of the Rings: The Return of the King",
+					posterPath: "/rCzpDGLbOoPwLjy3OAm5NUPOTrC.jpg",
+					type: "movie" as const,
+					year: "2003",
+					rating: 8.5,
+					streamingServices: ["hbo", "prime"],
+				},
+				{
+					id: "tt0110912",
+					title: "Pulp Fiction",
+					posterPath: "/d5iIlFn5s0ImszYzBPb8JPIfbXD.jpg",
+					type: "movie" as const,
+					year: "1994",
+					rating: 8.5,
+					streamingServices: ["netflix"],
+				},
+			];
+
+			const mockTvShows = [
+				{
+					id: "tt0944947",
+					title: "Game of Thrones",
+					posterPath: "/u3bZgnGQ9T01sWNhyveQz0wH0Hl.jpg",
+					type: "tv" as const,
+					year: "2011",
+					rating: 8.4,
+					streamingServices: ["hbo"],
+				},
+				{
+					id: "tt0903747",
+					title: "Breaking Bad",
+					posterPath: "/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
+					type: "tv" as const,
+					year: "2008",
+					rating: 8.5,
+					streamingServices: ["netflix"],
+				},
+				{
+					id: "tt0108778",
+					title: "Friends",
+					posterPath: "/f496cm9enuEsZkSPzCwnTESEK5s.jpg",
+					type: "tv" as const,
+					year: "1994",
+					rating: 8.4,
+					streamingServices: ["hbo", "netflix"],
+				},
+				{
+					id: "tt1475582",
+					title: "Sherlock",
+					posterPath: "/7WTsnHkbA0zBBsW5HaNudiHVt0B.jpg",
+					type: "tv" as const,
+					year: "2010",
+					rating: 8.4,
+					streamingServices: ["netflix", "prime"],
+				},
+				{
+					id: "tt0386676",
+					title: "The Office",
+					posterPath: "/qWnJzyZhyy74gjpSjIXWmuk0ifX.jpg",
+					type: "tv" as const,
+					year: "2005",
+					rating: 8.3,
+					streamingServices: ["peacock", "netflix"],
+				},
+			];
+
+			// Define a generic type for content items
+			type ContentItem = {
+				id: string;
+				title: string;
+				posterPath: string;
+				type: "movie" | "tv";
+				year: string;
+				rating: number;
+				streamingServices: string[];
+			};
+
+			// Generate more mock data by duplicating and slightly modifying existing items
+			const generateMoreMockData = <T extends ContentItem>(items: T[], count: number): T[] => {
+				const result = [...items];
+				while (result.length < count) {
+					const originalItems = items.slice(0, Math.min(items.length, count - result.length));
+					const newItems = originalItems.map(item => ({
+						...item,
+						id: item.id + "_" + result.length,
+						rating: Math.round((item.rating - 0.1 + Math.random() * 0.2) * 10) / 10,
+					}));
+					result.push(...newItems);
+				}
+				return result.slice(0, count);
+			};
+
+			formattedMovies = generateMoreMockData(mockMovies, 20);
+			formattedTvShows = generateMoreMockData(mockTvShows, 20);
+
+			// Mix movies and TV shows for trending section
+			const trendingItems: ContentItem[] = [
+				...generateMoreMockData(mockMovies, 10),
+				...generateMoreMockData(mockTvShows, 10)
+			];
+			// Shuffle the trending items
+			trendingContent = trendingItems.sort(() => Math.random() - 0.5);
+		} else {
+			// Use real data from the database
+			formattedMovies = formatMovieData(popularMovies);
+			formattedTvShows = formatTvShowData(popularTvShows);
+
+			// Mix movies and TV shows for trending section
+			trendingContent = [...formattedMovies.slice(0, 10), ...formattedTvShows.slice(0, 10)]
+				.sort(() => Math.random() - 0.5);
+		}
+
+		// Default values for featured content if database fetch fails
+		const defaultFeaturedContent = {
+			id: "tt0068646",
+			title: "The Godfather",
+			overview: "Spanning the years 1945 to 1955, a chronicle of the fictional Italian-American Corleone crime family. When organized crime family patriarch, Vito Corleone barely survives an attempt on his life, his youngest son, Michael steps in to take care of the would-be killers, launching a campaign of bloody revenge.",
+			backdropPath: "/3bhkrj58Vtu7enYsRolD1fZdja1.jpg",
+			releaseDate: new Date("1972-03-14"),
+			streamingOptions: []
+		};
+
+		// Extract streaming services for the featured content
+		const featuredStreamingServices = featuredContent?.streamingOptions?.map((option: any) => ({
+			name: option.provider,
+			url: option.url,
+		})) || [];
+
+		// Use the fetched content or fall back to default values
+		const heroContent = featuredContent || defaultFeaturedContent;
+		const releaseYear = heroContent.releaseDate
+			? new Date(heroContent.releaseDate).getFullYear().toString()
+			: "1972";
+
+		return (
+			<HydrateClient>
+				<div>
+					{/* Hero Section */}
+					<HeroSection
+						title={heroContent.title}
+						overview={heroContent.overview || ""}
+						backdropPath={heroContent.backdropPath || "/3bhkrj58Vtu7enYsRolD1fZdja1.jpg"}
+						id={heroContent.id}
+						type="movie"
+						year={releaseYear}
+						streamingServices={featuredStreamingServices.length > 0 ? featuredStreamingServices : [
+							{ name: "Netflix", url: "https://www.netflix.com/title/tt0068646" },
+							{ name: "Prime", url: "https://www.amazon.com/gp/video/detail/tt0068646" },
+						]}
+					/>
+
+					{/* Popular Movies Section */}
+					<ContentSection
+						title="Popular Movies"
+						viewAllHref="/movies"
+						items={formattedMovies}
+					/>
+
+					{/* Popular TV Shows Section */}
+					<ContentSection
+						title="Popular TV Shows"
+						viewAllHref="/tv-shows"
+						items={formattedTvShows}
+					/>
+
+					{/* Trending Now Section */}
+					<ContentSection
+						title="Trending Now"
+						items={trendingContent}
+					/>
 				</div>
-			</main>
-		</HydrateClient>
-	);
+			</HydrateClient>
+		);
+	} catch (error) {
+		console.error("Error loading homepage content:", error);
+
+		// Fallback to a simple error page
+		return (
+			<div className="container py-20 text-center">
+				<h1 className="text-3xl font-bold mb-4">Something went wrong</h1>
+				<p className="text-muted-foreground mb-8">
+					We're having trouble loading the content. Please try again later.
+				</p>
+				<button
+					onClick={() => window.location.reload()}
+					className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
+				>
+					Refresh Page
+				</button>
+			</div>
+		);
+	}
 }

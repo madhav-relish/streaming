@@ -14,18 +14,6 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    createdBy   User   @relation(fields: [createdById], references: [id])
-    createdById String
-
-    @@index([name])
-}
-
 // Necessary for Next auth
 model Account {
     id                       String  @id @default(cuid())
@@ -62,7 +50,8 @@ model User {
     image         String?
     accounts      Account[]
     sessions      Session[]
-    posts         Post[]
+    watchlist     Watchlist[]
+    preferences   UserPreference?
 }
 
 model VerificationToken {
@@ -71,4 +60,93 @@ model VerificationToken {
     expires    DateTime
 
     @@unique([identifier, token])
+}
+
+// StreamHub specific models
+model Movie {
+    id               String    @id // TMDB or IMDB ID
+    title            String
+    overview         String?   @db.Text
+    posterPath       String?
+    backdropPath     String?
+    releaseDate      DateTime?
+    voteAverage      Float?
+    voteCount        Int?
+    runtime          Int?
+    genres           Genre[]   @relation("MovieGenres")
+    streamingOptions StreamingOption[]
+    watchlist        Watchlist[]
+    createdAt        DateTime  @default(now())
+    updatedAt        DateTime  @updatedAt
+
+    @@index([title])
+}
+
+model TvShow {
+    id               String    @id // TMDB or IMDB ID
+    title            String
+    overview         String?   @db.Text
+    posterPath       String?
+    backdropPath     String?
+    firstAirDate     DateTime?
+    lastAirDate      DateTime?
+    voteAverage      Float?
+    voteCount        Int?
+    numberOfSeasons  Int?
+    numberOfEpisodes Int?
+    genres           Genre[]   @relation("TvShowGenres")
+    streamingOptions StreamingOption[]
+    watchlist        Watchlist[]
+    createdAt        DateTime  @default(now())
+    updatedAt        DateTime  @updatedAt
+
+    @@index([title])
+}
+
+model Genre {
+    id      String   @id
+    name    String   @unique
+    movies  Movie[]  @relation("MovieGenres")
+    tvShows TvShow[] @relation("TvShowGenres")
+}
+
+model StreamingOption {
+    id        String   @id @default(cuid())
+    provider  String   // Netflix, Amazon, etc.
+    region    String   // US, UK, etc.
+    url       String?
+    price     Float?
+    type      String   // SUBSCRIPTION, RENT, BUY
+    movie     Movie?   @relation(fields: [movieId], references: [id])
+    movieId   String?
+    tvShow    TvShow?  @relation(fields: [tvShowId], references: [id])
+    tvShowId  String?
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([provider, region, movieId, tvShowId])
+    @@index([provider, region])
+}
+
+model Watchlist {
+    id        String   @id @default(cuid())
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId    String
+    movie     Movie?   @relation(fields: [movieId], references: [id])
+    movieId   String?
+    tvShow    TvShow?  @relation(fields: [tvShowId], references: [id])
+    tvShowId  String?
+    addedAt   DateTime @default(now())
+
+    @@unique([userId, movieId, tvShowId])
+}
+
+model UserPreference {
+    id            String   @id @default(cuid())
+    user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    userId        String   @unique
+    region        String   @default("us") // Default region for content availability
+    preferredGenres Int[]    // Array of genre IDs
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
 }

@@ -1,29 +1,57 @@
-# Create T3 App
+# StreamHub
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+StreamHub is a modern streaming content aggregator that helps users discover where to watch their favorite movies and TV shows across multiple streaming platforms.
 
-## What's next? How do I make an app with this?
+## Features
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+- **Content Discovery**: Find movies and TV shows across multiple streaming platforms
+- **Detailed Information**: View comprehensive details about movies and TV shows
+- **Streaming Links**: Direct links to watch content on your subscribed platforms
+- **Watchlist**: Save content to watch later
+- **User Preferences**: Customize your experience based on your streaming subscriptions
+- **Embedded Viewing**: Watch content directly within the StreamHub interface
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+## Recent Updates
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+- **Rapid API Integration**: Now using the Streaming Availability API from Rapid API for real-time, accurate streaming data
+- **Enhanced Image Handling**: Better image quality with multiple size options
+- **Modal Preview**: Quick preview of content details in a modal
+- **Embedded Streaming**: Watch content without leaving the app
+- **Improved UI/UX**: More intuitive interface for discovering content
 
-## Learn More
+## Technology Stack
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+- [Next.js](https://nextjs.org) - React framework for server-rendered applications
+- [NextAuth.js](https://next-auth.js.org) - Authentication for Next.js
+- [Prisma](https://prisma.io) - Database ORM
+- [Tailwind CSS](https://tailwindcss.com) - Utility-first CSS framework
+- [shadcn/ui](https://ui.shadcn.com/) - UI component library
+- [Rapid API](https://rapidapi.com/) - API marketplace for streaming data
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+## Getting Started
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+1. Clone the repository
+2. Install dependencies with `npm install`
+3. Set up environment variables (see `.env.example`)
+4. Run the development server with `npm run dev`
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-## How do I deploy this?
+## Environment Variables
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+Create a `.env.local` file with the following variables:
+
+```
+# Database
+DATABASE_URL="your-database-url"
+
+# Authentication
+NEXTAUTH_SECRET="your-nextauth-secret"
+NEXTAUTH_URL="http://localhost:3000"
+
+# API Keys
+STREAMING_API_KEY="your-rapid-api-key"
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
