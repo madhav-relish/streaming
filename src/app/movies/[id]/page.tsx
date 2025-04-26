@@ -20,7 +20,7 @@ interface MoviePageProps {
 
 export async function generateMetadata({ params }: MoviePageProps) {
   const movieId = params.id;
-  const country = "us"; // Default country, could be from user preferences
+  const country = "in"; // Use India as the default country
 
   try {
     // Fetch movie data from the streaming service
@@ -54,7 +54,7 @@ export async function generateMetadata({ params }: MoviePageProps) {
 export default async function MoviePage({ params }: MoviePageProps) {
   const movieId = params.id;
   const session = await auth();
-  const country = "us"; // Default country, could be from user preferences
+  const country = "in"; // Use India as the default country
 
   // Check if the movie is in the user's watchlist
   let isInWatchlist = false;
@@ -217,10 +217,10 @@ export default async function MoviePage({ params }: MoviePageProps) {
               <div className="flex flex-wrap gap-3 pt-4">
                 {movie.streamingServices.length > 0 ? (
                   <Button asChild size="lg">
-                    <a href={movie.streamingServices[0].url} target="_blank" rel="noopener noreferrer">
+                    <Link href={`/watch/movie/${movie.id}?service=${encodeURIComponent(movie.streamingServices[0].name)}&url=${encodeURIComponent(movie.streamingServices[0].url)}&title=${encodeURIComponent(movie.title)}&poster=${encodeURIComponent(movie.posterPath || '')}`}>
                       <Play className="mr-2 h-5 w-5" />
                       Watch on {movie.streamingServices[0].name}
-                    </a>
+                    </Link>
                   </Button>
                 ) : (
                   <Button disabled size="lg">
@@ -256,9 +256,9 @@ export default async function MoviePage({ params }: MoviePageProps) {
           <div className="flex flex-wrap gap-4">
             {movie.streamingServices.map((service, index) => (
               <Button key={index} asChild variant="outline">
-                <a href={service.url} target="_blank" rel="noopener noreferrer">
+                <Link href={`/watch/movie/${movie.id}?service=${encodeURIComponent(service.name)}&url=${encodeURIComponent(service.url)}&title=${encodeURIComponent(movie.title)}&poster=${encodeURIComponent(movie.posterPath || '')}`}>
                   {service.name}
-                </a>
+                </Link>
               </Button>
             ))}
           </div>

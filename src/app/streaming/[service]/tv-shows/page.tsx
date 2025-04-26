@@ -1,7 +1,7 @@
 import { auth } from "@/server/auth";
 import { streamingService } from "@/server/services/streaming-service";
 import { ContentGrid } from "@/components/content/content-grid";
-import { streamingServices } from "@/lib/streaming-api";
+import { streamingServices } from "@/lib/streaming-services";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 

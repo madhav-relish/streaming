@@ -13,11 +13,21 @@ interface ContentGridProps {
     rating?: number | null;
     streamingServices?: string[];
     watchlistItemId?: string; // ID of the watchlist item (if in watchlist)
+    fullContent?: {
+      overview?: string | null;
+      backdropPath?: string | null;
+      releaseDate?: string | null;
+      runtime?: number | null;
+      genres?: { id: string; name: string }[];
+      streamingServices?: { name: string; url: string }[];
+    };
   }[];
   className?: string;
   onAddToWatchlist?: (id: string, type: "movie" | "tv") => void;
   onRemoveFromWatchlist?: (watchlistItemId: string) => void;
   watchlistIds?: string[];
+  userId?: string | null;
+  emptyMessage?: string;
 }
 
 export function ContentGrid({
@@ -26,7 +36,17 @@ export function ContentGrid({
   onAddToWatchlist,
   onRemoveFromWatchlist,
   watchlistIds = [],
+  userId = null,
+  emptyMessage = "No content found",
 }: ContentGridProps) {
+  if (!items || items.length === 0) {
+    return (
+      <div className="py-12 text-center">
+        <p className="text-muted-foreground">{emptyMessage}</p>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -53,6 +73,8 @@ export function ContentGrid({
               : undefined
           }
           watchlistAction={watchlistIds.includes(item.id) ? "remove" : "add"}
+          userId={userId}
+          fullContent={item.fullContent}
         />
       ))}
     </div>

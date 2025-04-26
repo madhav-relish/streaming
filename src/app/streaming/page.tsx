@@ -2,7 +2,7 @@ import { auth } from "@/server/auth";
 import { streamingService } from "@/server/services/streaming-service";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContentSection } from "@/components/home/content-section";
-import { streamingServices } from "@/lib/streaming-api";
+import { streamingServices } from "@/lib/streaming-services";
 import Image from "next/image";
 
 export default async function StreamingPage() {

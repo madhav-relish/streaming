@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Play, Star } from "lucide-react";
@@ -6,10 +5,12 @@ import { Play, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ContentSection } from "@/components/home/content-section";
-import { getImageUrl } from "@/lib/utils";
+import { formatRuntime } from "@/lib/utils";
 import { auth } from "@/server/auth";
 import { watchlistService } from "@/server/services/watchlist-service";
+import { streamingService } from "@/server/services/streaming-service";
 import { WatchlistButton } from "@/components/watchlist/watchlist-button";
+import { SafeImage } from "@/components/ui/safe-image";
 
 interface TvShowPageProps {
   params: {
@@ -18,70 +19,42 @@ interface TvShowPageProps {
 }
 
 export async function generateMetadata({ params }: TvShowPageProps) {
-  // In a real app, fetch TV show details from API
   const tvShowId = params.id;
+  const country = "in"; // Use India as the default country
 
-  // Mock TV show data
-  const mockTvShows = [
-    {
-      id: "tt0944947",
-      title: "Game of Thrones",
-      overview: "Seven noble families fight for control of the mythical land of Westeros. Friction between the houses leads to full-scale war. All while a very ancient evil awakens in the farthest north. Amidst the war, a neglected military order of misfits, the Night's Watch, is all that stands between the realms of men and icy horrors beyond.",
-      posterPath: "/u3bZgnGQ9T01sWNhyveQz0wH0Hl.jpg",
-      backdropPath: "/suopoADq0k8YZr4dQXcU6pToj6s.jpg",
-      firstAirDate: "2011-04-17",
-      lastAirDate: "2019-05-19",
-      numberOfSeasons: 8,
-      numberOfEpisodes: 73,
-      voteAverage: 8.4,
-      genres: [
-        { id: 10765, name: "Sci-Fi & Fantasy" },
-        { id: 18, name: "Drama" },
-        { id: 10759, name: "Action & Adventure" },
-      ],
-      streamingServices: [
-        { name: "HBO Max", url: "https://www.hbomax.com/series/urn:hbo:series:GVU2cggagzYNJjhsJATwo" },
-      ],
-    },
-    {
-      id: "tt0903747",
-      title: "Breaking Bad",
-      overview: "When Walter White, a New Mexico chemistry teacher, is diagnosed with Stage III cancer and given a prognosis of only two years left to live. He becomes filled with a sense of fearlessness and an unrelenting desire to secure his family's financial future at any cost as he enters the dangerous world of drugs and crime.",
-      posterPath: "/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
-      backdropPath: "/tsRy63Mu5cu8etL1X7ZLyf7UP1M.jpg",
-      firstAirDate: "2008-01-20",
-      lastAirDate: "2013-09-29",
-      numberOfSeasons: 5,
-      numberOfEpisodes: 62,
-      voteAverage: 8.5,
-      genres: [
-        { id: 18, name: "Drama" },
-        { id: 80, name: "Crime" },
-      ],
-      streamingServices: [
-        { name: "Netflix", url: "https://www.netflix.com/title/70143836" },
-      ],
-    },
-  ];
+  try {
+    // Fetch TV show data from the streaming service
+    const tvShowData = await streamingService.getTvShow(tvShowId, country);
 
-  const tvShow = mockTvShows.find((t) => t.id === tvShowId);
+    if (!tvShowData) {
+      return {
+        title: "TV Show Not Found | StreamHub",
+        description: "The requested TV show could not be found.",
+      };
+    }
 
-  if (!tvShow) {
+    // Format the description
+    const description = tvShowData.overview
+      ? tvShowData.overview.substring(0, 160) + (tvShowData.overview.length > 160 ? "..." : "")
+      : "No description available.";
+
+    return {
+      title: `${tvShowData.title} | StreamHub`,
+      description: description,
+    };
+  } catch (error) {
+    console.error("Error fetching TV show metadata:", error);
     return {
       title: "TV Show Not Found | StreamHub",
       description: "The requested TV show could not be found.",
     };
   }
-
-  return {
-    title: `${tvShow.title} | StreamHub`,
-    description: tvShow.overview.substring(0, 160) + "...",
-  };
 }
 
 export default async function TvShowPage({ params }: TvShowPageProps) {
   const tvShowId = params.id;
   const session = await auth();
+  const country = "in"; // Use India as the default country
 
   // Check if the TV show is in the user's watchlist
   let isInWatchlist = false;
@@ -101,54 +74,35 @@ export default async function TvShowPage({ params }: TvShowPageProps) {
     }
   }
 
-  // Mock TV show data
-  const mockTvShows = [
-    {
-      id: "tt0944947",
-      title: "Game of Thrones",
-      overview: "Seven noble families fight for control of the mythical land of Westeros. Friction between the houses leads to full-scale war. All while a very ancient evil awakens in the farthest north. Amidst the war, a neglected military order of misfits, the Night's Watch, is all that stands between the realms of men and icy horrors beyond.",
-      posterPath: "/u3bZgnGQ9T01sWNhyveQz0wH0Hl.jpg",
-      backdropPath: "/suopoADq0k8YZr4dQXcU6pToj6s.jpg",
-      firstAirDate: "2011-04-17",
-      lastAirDate: "2019-05-19",
-      numberOfSeasons: 8,
-      numberOfEpisodes: 73,
-      voteAverage: 8.4,
-      genres: [
-        { id: 10765, name: "Sci-Fi & Fantasy" },
-        { id: 18, name: "Drama" },
-        { id: 10759, name: "Action & Adventure" },
-      ],
-      streamingServices: [
-        { name: "HBO Max", url: "https://www.hbomax.com/series/urn:hbo:series:GVU2cggagzYNJjhsJATwo" },
-      ],
-    },
-    {
-      id: "tt0903747",
-      title: "Breaking Bad",
-      overview: "When Walter White, a New Mexico chemistry teacher, is diagnosed with Stage III cancer and given a prognosis of only two years left to live. He becomes filled with a sense of fearlessness and an unrelenting desire to secure his family's financial future at any cost as he enters the dangerous world of drugs and crime.",
-      posterPath: "/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
-      backdropPath: "/tsRy63Mu5cu8etL1X7ZLyf7UP1M.jpg",
-      firstAirDate: "2008-01-20",
-      lastAirDate: "2013-09-29",
-      numberOfSeasons: 5,
-      numberOfEpisodes: 62,
-      voteAverage: 8.5,
-      genres: [
-        { id: 18, name: "Drama" },
-        { id: 80, name: "Crime" },
-      ],
-      streamingServices: [
-        { name: "Netflix", url: "https://www.netflix.com/title/70143836" },
-      ],
-    },
-  ];
+  // Fetch TV show data from the streaming service
+  try {
+    const tvShowData = await streamingService.getTvShow(tvShowId, country);
 
-  const tvShow = mockTvShows.find((t) => t.id === tvShowId);
+    if (!tvShowData) {
+      notFound();
+    }
 
-  if (!tvShow) {
-    notFound();
-  }
+    // Format the TV show data for display
+    const tvShow = {
+      id: tvShowData.id,
+      title: tvShowData.title,
+      overview: tvShowData.overview || "No overview available.",
+      posterPath: tvShowData.posterPath,
+      backdropPath: tvShowData.backdropPath,
+      firstAirDate: tvShowData.firstAirDate ? tvShowData.firstAirDate.toISOString() : null,
+      lastAirDate: tvShowData.lastAirDate ? tvShowData.lastAirDate.toISOString() : null,
+      numberOfSeasons: tvShowData.numberOfSeasons || 0,
+      numberOfEpisodes: tvShowData.numberOfEpisodes || 0,
+      voteAverage: tvShowData.voteAverage || 0,
+      genres: tvShowData.genres.map(genre => ({
+        id: genre.id,
+        name: genre.name
+      })),
+      streamingServices: tvShowData.streamingOptions.map(option => ({
+        name: option.provider.charAt(0).toUpperCase() + option.provider.slice(1), // Capitalize provider name
+        url: option.url
+      }))
+    };
 
   // Mock similar TV shows
   const similarTvShows = [
@@ -200,11 +154,12 @@ export default async function TvShowPage({ params }: TvShowPageProps) {
   ];
 
   // Extract years from air dates
-  const firstAirYear = new Date(tvShow.firstAirDate).getFullYear();
-  const lastAirYear = new Date(tvShow.lastAirDate).getFullYear();
-  const yearRange = firstAirYear === lastAirYear
-    ? firstAirYear.toString()
-    : `${firstAirYear}–${lastAirYear}`;
+  const firstAirYear = tvShow.firstAirDate ? new Date(tvShow.firstAirDate).getFullYear() : null;
+  const lastAirYear = tvShow.lastAirDate ? new Date(tvShow.lastAirDate).getFullYear() : null;
+  const yearRange = !firstAirYear ? "Unknown" :
+                    !lastAirYear || firstAirYear === lastAirYear ?
+                    firstAirYear.toString() :
+                    `${firstAirYear}–${lastAirYear}`;
 
   return (
     <div>
@@ -212,8 +167,8 @@ export default async function TvShowPage({ params }: TvShowPageProps) {
       <div className="relative w-full h-[70vh] overflow-hidden">
         {/* Backdrop Image */}
         <div className="absolute inset-0">
-          <Image
-            src={getImageUrl(tvShow.backdropPath, "backdrop")}
+          <SafeImage
+            src={tvShow.backdropPath}
             alt={tvShow.title}
             fill
             className="object-cover"
@@ -228,8 +183,8 @@ export default async function TvShowPage({ params }: TvShowPageProps) {
           <div className="flex flex-col md:flex-row gap-8">
             {/* Poster */}
             <div className="hidden md:block flex-shrink-0 w-64 rounded-lg overflow-hidden shadow-lg">
-              <Image
-                src={getImageUrl(tvShow.posterPath, "poster")}
+              <SafeImage
+                src={tvShow.posterPath}
                 alt={tvShow.title}
                 width={256}
                 height={384}
@@ -248,10 +203,18 @@ export default async function TvShowPage({ params }: TvShowPageProps) {
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
                   <span>{tvShow.voteAverage.toFixed(1)}</span>
                 </div>
-                <span className="text-muted-foreground">•</span>
-                <span>{tvShow.numberOfSeasons} {tvShow.numberOfSeasons === 1 ? "Season" : "Seasons"}</span>
-                <span className="text-muted-foreground">•</span>
-                <span>{tvShow.numberOfEpisodes} Episodes</span>
+                {tvShow.numberOfSeasons > 0 && (
+                  <>
+                    <span className="text-muted-foreground">•</span>
+                    <span>{tvShow.numberOfSeasons} {tvShow.numberOfSeasons === 1 ? "Season" : "Seasons"}</span>
+                  </>
+                )}
+                {tvShow.numberOfEpisodes > 0 && (
+                  <>
+                    <span className="text-muted-foreground">•</span>
+                    <span>{tvShow.numberOfEpisodes} Episodes</span>
+                  </>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -269,10 +232,10 @@ export default async function TvShowPage({ params }: TvShowPageProps) {
               <div className="flex flex-wrap gap-3 pt-4">
                 {tvShow.streamingServices.length > 0 ? (
                   <Button asChild size="lg">
-                    <a href={tvShow.streamingServices[0].url} target="_blank" rel="noopener noreferrer">
+                    <Link href={`/watch/tv/${tvShow.id}?service=${encodeURIComponent(tvShow.streamingServices[0].name)}&url=${encodeURIComponent(tvShow.streamingServices[0].url)}&title=${encodeURIComponent(tvShow.title)}&poster=${encodeURIComponent(tvShow.posterPath || '')}`}>
                       <Play className="mr-2 h-5 w-5" />
                       Watch on {tvShow.streamingServices[0].name}
-                    </a>
+                    </Link>
                   </Button>
                 ) : (
                   <Button disabled size="lg">
@@ -308,9 +271,9 @@ export default async function TvShowPage({ params }: TvShowPageProps) {
           <div className="flex flex-wrap gap-4">
             {tvShow.streamingServices.map((service, index) => (
               <Button key={index} asChild variant="outline">
-                <a href={service.url} target="_blank" rel="noopener noreferrer">
+                <Link href={`/watch/tv/${tvShow.id}?service=${encodeURIComponent(service.name)}&url=${encodeURIComponent(service.url)}&title=${encodeURIComponent(tvShow.title)}&poster=${encodeURIComponent(tvShow.posterPath || '')}`}>
                   {service.name}
-                </a>
+                </Link>
               </Button>
             ))}
           </div>

@@ -29,7 +29,7 @@ export class StreamingService {
   /**
    * Get a movie by its ID, first checking the database, then falling back to the API
    */
-  async getMovie(id: string, country = "us") {
+  async getMovie(id: string, country = "in") {
     // First, try to get the movie from the database
     const cachedMovie = await prisma.movie.findUnique({
       where: { id },
@@ -59,8 +59,11 @@ export class StreamingService {
 
       try {
         // Make the API call to get the movie data
+        // Ensure the ID is in the correct format (remove 'tt' prefix if present)
+        const formattedId = id.startsWith('tt') ? id : `tt${id}`;
+
         const response = await client.showsApi.getShow({
-          id: id,
+          id: formattedId,
           country: country
         });
 
@@ -108,7 +111,7 @@ export class StreamingService {
   /**
    * Get popular movies, first checking the database, then falling back to the API
    */
-  async getPopularMovies(country = "us", page = 1, limit = 20) {
+  async getPopularMovies(country = "in", page = 1, limit = 20) {
     // Check if we have cached popular movies that were updated recently
     const cachedMovies = await prisma.movie.findMany({
       where: {
@@ -203,7 +206,7 @@ export class StreamingService {
   /**
    * Get popular TV shows, first checking the database, then falling back to the API
    */
-  async getPopularTvShows(country = "us", page = 1, limit = 20) {
+  async getPopularTvShows(country = "in", page = 1, limit = 20) {
     // Check if we have cached popular TV shows that were updated recently
     const cachedTvShows = await prisma.tvShow.findMany({
       where: {
@@ -258,8 +261,8 @@ export class StreamingService {
               { id: "18", name: "Drama" }
             ],
             streamingInfo: {
-              us: {
-                hbo: [{ link: "https://www.hbomax.com/series/urn:hbo:series:GVU2cggagzYNJjhsJATwo", type: "SUBSCRIPTION" }]
+              in: {
+                hotstar: [{ link: "https://www.hotstar.com/in/tv/game-of-thrones/8184", type: "SUBSCRIPTION" }]
               }
             }
           },
@@ -280,8 +283,8 @@ export class StreamingService {
               { id: "80", name: "Crime" }
             ],
             streamingInfo: {
-              us: {
-                netflix: [{ link: "https://www.netflix.com/title/70143836", type: "SUBSCRIPTION" }]
+              in: {
+                netflix: [{ link: "https://www.netflix.com/in/title/70143836", type: "SUBSCRIPTION" }]
               }
             }
           }
@@ -309,7 +312,7 @@ export class StreamingService {
    */
   async getContentByService(
     service: string,
-    country = "us",
+    country = "in",
     type?: "movie" | "series",
     page = 1,
     limit = 20
@@ -357,17 +360,54 @@ export class StreamingService {
 
       try {
         // Make the API call to search for content by service
+        // The Rapid API doesn't have a direct filter for services, so we'll fetch popular content
+        // and then filter it on our side
         const response = await client.showsApi.searchShowsByFilters({
           country: country,
           showType: type,
-          services: service,
           orderBy: "popularity_1year",
-          limit: limit,
-          offset: (page - 1) * limit
         });
 
+        // Filter the results to only include content from the specified service
+        const filteredResults = response.shows.filter((show: any) => {
+          if (!show.streamingOptions || !show.streamingOptions[country]) {
+            return false;
+          }
+
+          // Check if any of the streaming options match our service
+          return show.streamingOptions[country].some((option: any) => {
+            // Get the service ID
+            const serviceId = option.service?.id;
+
+            // Check if it matches our service (with special handling for Indian services)
+            if (country === "in") {
+              // Map service IDs to our supported providers
+              if (service === "hotstar" && serviceId === "disney") return true;
+              if (service === "zee5" && serviceId === "zee5") return true;
+              if (service === "sonyliv" && serviceId === "sonyliv") return true;
+              if (service === "jiocinema" && serviceId === "jiocinema") return true;
+              if (service === "mxplayer" && serviceId === "mxplayer") return true;
+              if (service === "voot" && serviceId === "voot") return true;
+              if (service === "altbalaji" && serviceId === "altbalaji") return true;
+
+              // Log the service ID for debugging
+              console.log(`Checking service ID: ${serviceId} against requested service: ${service}`);
+            }
+
+            return serviceId === service;
+          });
+        });
+
+        // Limit the results
+        const paginatedResults = filteredResults.slice((page - 1) * limit, page * limit);
+
+        // Create a response object similar to the API response
+        const filteredResponse = {
+          shows: paginatedResults
+        };
+
         // Process and save the results
-        const results = response.shows || [];
+        const results = paginatedResults || [];
         console.log(`Found ${results.length} ${type}s for ${service}`);
 
         // Save all content to the database
@@ -403,7 +443,7 @@ export class StreamingService {
   /**
    * Search for content, using the API directly (no caching for search results)
    */
-  async searchContent(query: string, country = "us", type?: "movie" | "series", page = 1, limit = 20) {
+  async searchContent(query: string, country = "in", type?: "movie" | "series", page = 1, limit = 20) {
     try {
       // Use the Rapid API client to search for content
       let searchResults = [];
@@ -676,7 +716,14 @@ export class StreamingService {
       })) || [];
 
       // Extract streaming options
-      const streamingOptions = this.extractStreamingOptions(tvShowData, country);
+      let streamingOptions;
+
+      // Check if this is from the Rapid API format
+      if (tvShowData.streamingOptions) {
+        streamingOptions = this.extractStreamingOptionsFromRapidAPI(tvShowData, country);
+      } else {
+        streamingOptions = this.extractStreamingOptions(tvShowData, country);
+      }
 
       // Check if the TV show already exists
       const existingTvShow = await prisma.tvShow.findUnique({
@@ -814,6 +861,9 @@ export class StreamingService {
       type: string;
     }> = [];
 
+    // Map to track providers we've already added
+    const addedProviders = new Set<string>();
+
     // Check if streaming info exists for the specified country
     if (contentData.streamingInfo && contentData.streamingInfo[country]) {
       const countryStreamingInfo = contentData.streamingInfo[country];
@@ -825,9 +875,21 @@ export class StreamingService {
           // Map provider names for India
           let mappedProvider = provider;
 
-          // Map Disney+ to Hotstar for India
-          if (provider === "disney" && country === "in") {
-            mappedProvider = "hotstar";
+          // Map streaming services for India
+          if (country === "in") {
+            // Map common Indian streaming services
+            if (provider === "disney") mappedProvider = "hotstar";
+            else if (provider === "curiosity") mappedProvider = "curiosity";
+            else if (provider === "zee5") mappedProvider = "zee5";
+            else if (provider === "sonyliv") mappedProvider = "sonyliv";
+            else if (provider === "jiocinema") mappedProvider = "jiocinema";
+            else if (provider === "mxplayer") mappedProvider = "mxplayer";
+            else if (provider === "voot") mappedProvider = "voot";
+            else if (provider === "altbalaji") mappedProvider = "altbalaji";
+            else if (provider === "discovery") mappedProvider = "discovery";
+
+            // Log the provider to help with debugging
+            console.log(`Found streaming provider: ${mappedProvider} for content in India`);
           }
 
           // Skip if the URL is invalid
@@ -835,6 +897,15 @@ export class StreamingService {
             console.warn(`Skipping invalid streaming URL for content on ${mappedProvider}`);
             continue;
           }
+
+          // Skip if we've already added this provider
+          if (addedProviders.has(mappedProvider)) {
+            console.log(`Skipping duplicate streaming provider: ${mappedProvider}`);
+            continue;
+          }
+
+          // Add the provider to our tracking set
+          addedProviders.add(mappedProvider);
 
           options.push({
             provider: mappedProvider,
@@ -860,6 +931,9 @@ export class StreamingService {
       type: string;
     }> = [];
 
+    // Map to track providers we've already added
+    const addedProviders = new Set<string>();
+
     // Check if streaming options exist for the specified country
     if (contentData.streamingOptions && contentData.streamingOptions[country]) {
       const countryStreamingOptions = contentData.streamingOptions[country];
@@ -873,9 +947,21 @@ export class StreamingService {
         // Map service IDs to our supported providers
         let provider = option.service.id;
 
-        // Map Disney+ Hotstar to our hotstar provider for India
-        if (provider === "disney" && country === "in") {
-          provider = "hotstar";
+        // Map streaming services for India
+        if (country === "in") {
+          // Map common Indian streaming services
+          if (provider === "disney") provider = "hotstar";
+          else if (provider === "curiosity") provider = "curiosity";
+          else if (provider === "zee5") provider = "zee5";
+          else if (provider === "sonyliv") provider = "sonyliv";
+          else if (provider === "jiocinema") provider = "jiocinema";
+          else if (provider === "mxplayer") provider = "mxplayer";
+          else if (provider === "voot") provider = "voot";
+          else if (provider === "altbalaji") provider = "altbalaji";
+          else if (provider === "discovery") provider = "discovery";
+
+          // Log the provider to help with debugging
+          console.log(`Found streaming provider: ${provider} for content in India`);
         }
 
         // Skip if the URL is invalid
@@ -883,6 +969,15 @@ export class StreamingService {
           console.warn(`Skipping invalid streaming URL for content on ${provider}`);
           continue;
         }
+
+        // Skip if we've already added this provider
+        if (addedProviders.has(provider)) {
+          console.log(`Skipping duplicate streaming provider: ${provider}`);
+          continue;
+        }
+
+        // Add the provider to our tracking set
+        addedProviders.add(provider);
 
         options.push({
           provider: provider,
@@ -974,6 +1069,85 @@ export class StreamingService {
       };
     } catch (error) {
       console.error("Error refreshing content:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get a TV show by its ID, first checking the database, then falling back to the API
+   */
+  async getTvShow(id: string, country = "in") {
+    // First, try to get the TV show from the database
+    const cachedTvShow = await prisma.tvShow.findUnique({
+      where: { id },
+      include: {
+        genres: true,
+        streamingOptions: {
+          where: { region: country },
+        },
+      },
+    });
+
+    // If the TV show exists and was updated recently, return it
+    if (
+      cachedTvShow &&
+      cachedTvShow.updatedAt > new Date(Date.now() - 24 * 60 * 60 * 1000)
+    ) {
+      console.log("Returning cached TV show data for", id);
+      return cachedTvShow;
+    }
+
+    // Otherwise, fetch from the API
+    try {
+      console.log("Fetching TV show data from API for", id);
+
+      // Use the Rapid API client to fetch real data
+      let tvShowData;
+
+      try {
+        // Make the API call to get the TV show data
+        // Ensure the ID is in the correct format (remove 'tt' prefix if present)
+        const formattedId = id.startsWith('tt') ? id : `tt${id}`;
+
+        const response = await client.showsApi.getShow({
+          id: formattedId,
+          country: country
+        });
+
+        // Use the response data
+        tvShowData = response;
+        console.log(`Successfully fetched data for ${id} from Rapid API`);
+      } catch (apiError) {
+        console.error("Error fetching from Rapid API:", apiError);
+
+        // Fallback to default data if API call fails
+        tvShowData = {
+          itemType: "show",
+          showType: "series",
+          id: id,
+          imdbId: id,
+          title: "Unknown TV Show",
+          overview: "No information available for this TV show.",
+          firstAirYear: null,
+          lastAirYear: null,
+          genres: [],
+          rating: null,
+          numberOfSeasons: 0,
+          numberOfEpisodes: 0,
+          imageSet: {
+            verticalPoster: {},
+            horizontalBackdrop: {}
+          },
+          streamingOptions: {}
+        };
+      }
+
+      // Save the TV show to the database
+      return this.saveTvShowToDatabase(tvShowData, country);
+    } catch (error) {
+      console.error("Error fetching TV show data:", error);
+      // If API call fails but we have cached data, return that
+      if (cachedTvShow) return cachedTvShow;
       throw error;
     }
   }

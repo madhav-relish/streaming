@@ -4,6 +4,7 @@ import { streamingService } from "@/server/services/streaming-service";
 
 import { HeroSection } from "@/components/home/hero-section";
 import { ContentSection } from "@/components/home/content-section";
+import { StreamingTabs } from "@/components/home/streaming-tabs";
 
 export default async function Home() {
 	// Get user session for personalization (will use later)
@@ -126,6 +127,9 @@ export default async function Home() {
 						year={releaseYear}
 						streamingServices={featuredStreamingServices.length > 0 ? featuredStreamingServices : []}
 					/>
+
+					{/* Streaming Tabs Section */}
+					<StreamingTabs />
 
 					{/* Popular Movies Section */}
 					<ContentSection

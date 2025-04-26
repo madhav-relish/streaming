@@ -141,7 +141,7 @@ export function ContentPreviewModal({
           <div className="flex flex-wrap gap-3">
             {content.streamingServices && content.streamingServices.length > 0 ? (
               <Button asChild>
-                <Link href={`/watch/${content.type}/${content.id}?service=${encodeURIComponent(content.streamingServices[0].name)}&url=${encodeURIComponent(content.streamingServices[0].url)}`}>
+                <Link href={`/watch/${content.type}/${content.id}?service=${encodeURIComponent(content.streamingServices[0].name)}&url=${encodeURIComponent(content.streamingServices[0].url)}&title=${encodeURIComponent(content.title)}&poster=${encodeURIComponent(content.posterPath || '')}`}>
                   <Play className="mr-2 h-5 w-5" />
                   Watch on {content.streamingServices[0].name}
                 </Link>
@@ -182,7 +182,7 @@ export function ContentPreviewModal({
               <div className="flex flex-wrap gap-2">
                 {content.streamingServices.map((service, index) => (
                   <Button key={index} asChild variant="outline" size="sm">
-                    <Link href={`/watch/${content.type}/${content.id}?service=${encodeURIComponent(service.name)}&url=${encodeURIComponent(service.url)}`}>
+                    <Link href={`/watch/${content.type}/${content.id}?service=${encodeURIComponent(service.name)}&url=${encodeURIComponent(service.url)}&title=${encodeURIComponent(content.title)}&poster=${encodeURIComponent(content.posterPath || '')}`}>
                       {service.name}
                     </Link>
                   </Button>
