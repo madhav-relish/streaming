@@ -14,92 +14,95 @@ export type StreamingService = {
   url: string;
 };
 
+// Default placeholder for streaming service logos
+const placeholderLogo = "/images/streaming/placeholder.svg";
+
 export const streamingServices: Record<string, StreamingService> = {
   // Global streaming services
   netflix: {
     name: "Netflix",
-    logo: "/images/streaming/netflix.png",
+    logo: placeholderLogo,
     url: "https://www.netflix.com/",
   },
   prime: {
     name: "Amazon Prime",
-    logo: "/images/streaming/prime.png",
+    logo: placeholderLogo,
     url: "https://www.primevideo.com/",
   },
   disney: {
     name: "Disney+ Hotstar",
-    logo: "/images/streaming/disney.png",
+    logo: placeholderLogo,
     url: "https://www.hotstar.com/",
   },
   apple: {
     name: "Apple TV+",
-    logo: "/images/streaming/apple.png",
+    logo: placeholderLogo,
     url: "https://tv.apple.com/",
   },
 
   // Indian streaming services
   hotstar: {
     name: "Hotstar",
-    logo: "/images/streaming/hotstar.png",
+    logo: placeholderLogo,
     url: "https://www.hotstar.com/",
   },
   sonyliv: {
     name: "SonyLIV",
-    logo: "/images/streaming/sonyliv.png",
+    logo: placeholderLogo,
     url: "https://www.sonyliv.com/",
   },
   zee5: {
     name: "ZEE5",
-    logo: "/images/streaming/zee5.png",
+    logo: placeholderLogo,
     url: "https://www.zee5.com/",
   },
   jiocinema: {
     name: "JioCinema",
-    logo: "/images/streaming/jiocinema.png",
+    logo: placeholderLogo,
     url: "https://www.jiocinema.com/",
   },
   mxplayer: {
     name: "MX Player",
-    logo: "/images/streaming/mxplayer.png",
+    logo: placeholderLogo,
     url: "https://www.mxplayer.in/",
   },
   voot: {
     name: "Voot",
-    logo: "/images/streaming/voot.png",
+    logo: placeholderLogo,
     url: "https://www.voot.com/",
   },
   altbalaji: {
     name: "ALTBalaji",
-    logo: "/images/streaming/altbalaji.png",
+    logo: placeholderLogo,
     url: "https://www.altbalaji.com/",
   },
 
   // Other international services available in India
   mubi: {
     name: "MUBI",
-    logo: "/images/streaming/mubi.png",
+    logo: placeholderLogo,
     url: "https://mubi.com/",
   },
 
   // US services (kept for compatibility)
   hbo: {
     name: "HBO Max",
-    logo: "/images/streaming/hbo.png",
+    logo: placeholderLogo,
     url: "https://www.hbomax.com/",
   },
   hulu: {
     name: "Hulu",
-    logo: "/images/streaming/hulu.png",
+    logo: placeholderLogo,
     url: "https://www.hulu.com/",
   },
   paramount: {
     name: "Paramount+",
-    logo: "/images/streaming/paramount.png",
+    logo: placeholderLogo,
     url: "https://www.paramountplus.com/",
   },
   peacock: {
     name: "Peacock",
-    logo: "/images/streaming/peacock.png",
+    logo: placeholderLogo,
     url: "https://www.peacocktv.com/",
   },
 };

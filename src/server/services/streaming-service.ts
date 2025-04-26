@@ -305,6 +305,102 @@ export class StreamingService {
   }
 
   /**
+   * Get content by streaming service
+   */
+  async getContentByService(
+    service: string,
+    country = "us",
+    type?: "movie" | "series",
+    page = 1,
+    limit = 20
+  ) {
+    try {
+      // First check if we have cached content for this service
+      const model = type === "movie" ? prisma.movie : prisma.tvShow;
+
+      const cachedContent = await model.findMany({
+        where: {
+          streamingOptions: {
+            some: {
+              provider: service,
+              region: country,
+            },
+          },
+          updatedAt: {
+            gt: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
+          },
+        },
+        include: {
+          genres: true,
+          streamingOptions: {
+            where: {
+              provider: service,
+              region: country,
+            },
+          },
+        },
+        orderBy: {
+          voteAverage: "desc",
+        },
+        take: limit,
+        skip: (page - 1) * limit,
+      });
+
+      // If we have enough cached content, return it
+      if (cachedContent.length >= 5) {
+        console.log(`Returning cached ${type} content for ${service}`);
+        return cachedContent;
+      }
+
+      // Otherwise, fetch from the API
+      console.log(`Fetching ${type} content for ${service} from API`);
+
+      try {
+        // Make the API call to search for content by service
+        const response = await client.showsApi.searchShowsByFilters({
+          country: country,
+          showType: type,
+          services: service,
+          orderBy: "popularity_1year",
+          limit: limit,
+          offset: (page - 1) * limit
+        });
+
+        // Process and save the results
+        const results = response.shows || [];
+        console.log(`Found ${results.length} ${type}s for ${service}`);
+
+        // Save all content to the database
+        const savedContent = await Promise.all(
+          results.map((item: any) => {
+            if (type === "movie") {
+              return this.saveMovieToDatabase(item, country);
+            } else {
+              return this.saveTvShowToDatabase(item, country);
+            }
+          })
+        );
+
+        return savedContent;
+      } catch (apiError) {
+        console.error(`Error fetching ${type} content for ${service}:`, apiError);
+
+        // If API call fails but we have some cached data, return that
+        if (cachedContent.length > 0) {
+          console.log(`Returning partial cached ${type} content for ${service}`);
+          return cachedContent;
+        }
+
+        // Otherwise return empty array
+        return [];
+      }
+    } catch (error) {
+      console.error(`Error getting ${type} content for ${service}:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Search for content, using the API directly (no caching for search results)
    */
   async searchContent(query: string, country = "us", type?: "movie" | "series", page = 1, limit = 20) {

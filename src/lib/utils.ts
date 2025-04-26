@@ -31,7 +31,7 @@ export function getImageUrl(path: string | null | undefined, size: "poster" | "b
   }
 
   // Generate the final URL based on the path
-  let finalUrl = "";
+  let finalUrl: string | null = null;
 
   // Check if the path is already a full URL
   if (path.startsWith('http')) {
@@ -118,6 +118,11 @@ export function getImageUrl(path: string | null | undefined, size: "poster" | "b
     } catch (error) {
       console.error("Error checking image cache:", error);
     }
+  }
+
+  // Make sure we never return an empty string
+  if (!finalUrl || finalUrl === "") {
+    return size === "poster" ? placeholderPoster : placeholderBackdrop;
   }
 
   return finalUrl;

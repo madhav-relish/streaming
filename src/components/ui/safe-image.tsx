@@ -45,7 +45,7 @@ export function SafeImage({
   fallbackSrc,
   ...props
 }: SafeImageProps) {
-  const [imgSrc, setImgSrc] = useState<string>("");
+  const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
@@ -60,7 +60,8 @@ export function SafeImage({
   };
 
   useEffect(() => {
-    if (!src) {
+    // Handle empty, null, or undefined src
+    if (!src || src === "") {
       setImgSrc(fallbackSrc || getDefaultFallback());
       setIsLoading(false);
       return;
@@ -75,6 +76,7 @@ export function SafeImage({
       return;
     }
 
+    // Valid src, use it
     setImgSrc(src);
     setIsLoading(true);
     setHasError(false);
@@ -82,17 +84,26 @@ export function SafeImage({
 
   const handleError = () => {
     console.error(`Image failed to load: ${imgSrc}`);
-    
+
     // Add to failed image cache
     if (src) {
       failedImageCache.add(src);
       saveFailedImageCache();
     }
-    
+
     setImgSrc(fallbackSrc || getDefaultFallback());
     setHasError(true);
     setIsLoading(false);
   };
+
+  // Don't render anything if we don't have a valid src
+  if (imgSrc === null) {
+    return (
+      <div className="flex items-center justify-center w-full h-full bg-muted">
+        <span className="text-xs text-muted-foreground">{alt}</span>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -101,7 +112,7 @@ export function SafeImage({
           <span className="sr-only">Loading...</span>
         </div>
       )}
-      
+
       <Image
         {...props}
         src={imgSrc}

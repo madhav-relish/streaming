@@ -16,6 +16,10 @@ export function MainNav({ className }: MainNavProps) {
       label: "TV Shows",
     },
     {
+      href: "/streaming",
+      label: "Streaming",
+    },
+    {
       href: "/genres",
       label: "Genres",
     },

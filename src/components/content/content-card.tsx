@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { Heart, Loader2, Trash, Star } from "lucide-react";
+import { Heart, Trash, Star } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,74 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { truncateText } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { SafeImage } from "@/components/ui/safe-image";
+
+// Create a mapping for streaming service display
+const streamingServicesMap: Record<string, { name: string; color: string; icon?: React.ReactNode }> = {
+  netflix: {
+    name: "Netflix",
+    color: "bg-red-600 text-white"
+  },
+  prime: {
+    name: "Prime",
+    color: "bg-blue-700 text-white"
+  },
+  hotstar: {
+    name: "Hotstar",
+    color: "bg-blue-600 text-white"
+  },
+  disney: {
+    name: "Disney+",
+    color: "bg-blue-600 text-white"
+  },
+  sonyliv: {
+    name: "SonyLIV",
+    color: "bg-red-700 text-white"
+  },
+  zee5: {
+    name: "ZEE5",
+    color: "bg-purple-700 text-white"
+  },
+  jiocinema: {
+    name: "JioCinema",
+    color: "bg-pink-600 text-white"
+  },
+  mxplayer: {
+    name: "MX Player",
+    color: "bg-green-600 text-white"
+  },
+  voot: {
+    name: "Voot",
+    color: "bg-yellow-500 text-black"
+  },
+  altbalaji: {
+    name: "ALTBalaji",
+    color: "bg-red-500 text-white"
+  },
+  apple: {
+    name: "Apple TV+",
+    color: "bg-gray-800 text-white"
+  },
+  mubi: {
+    name: "MUBI",
+    color: "bg-black text-white"
+  },
+  hbo: {
+    name: "HBO Max",
+    color: "bg-purple-800 text-white"
+  },
+  hulu: {
+    name: "Hulu",
+    color: "bg-green-500 text-white"
+  },
+  paramount: {
+    name: "Paramount+",
+    color: "bg-blue-800 text-white"
+  },
+  peacock: {
+    name: "Peacock",
+    color: "bg-teal-500 text-white"
+  }
+};
 import {
   Tooltip,
   TooltipContent,
@@ -56,7 +123,6 @@ export function ContentCard({
   fullContent,
 }: ContentCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const href = type === "movie" ? `/movies/${id}` : `/tv-shows/${id}`;
 
   // Prepare content data for modal
   const modalContent = fullContent
@@ -118,21 +184,33 @@ export function ContentCard({
               </Badge>
             )}
           </div>
-          {streamingServices && streamingServices.length > 0 ? (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {streamingServices.map((service) => (
-                <Badge key={service} variant="secondary" className="text-xs">
-                  {service}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-1 mt-2">
+          {/* Streaming Services */}
+          <div className="flex flex-wrap gap-1 mt-2">
+            {streamingServices && streamingServices.length > 0 ? (
+              streamingServices.map((service) => {
+                // Get service info from our mapping
+                const serviceInfo = streamingServicesMap[service.toLowerCase()] || {
+                  name: service.charAt(0).toUpperCase() + service.slice(1),
+                  color: "bg-secondary"
+                };
+
+                return (
+                  <Badge
+                    key={service}
+                    variant="secondary"
+                    className={`text-xs flex items-center gap-1 ${serviceInfo.color}`}
+                  >
+                    {serviceInfo.icon && serviceInfo.icon}
+                    {serviceInfo.name}
+                  </Badge>
+                );
+              })
+            ) : (
               <Badge variant="outline" className="text-xs text-muted-foreground">
                 No streaming info
               </Badge>
-            </div>
-          )}
+            )}
+          </div>
         </CardContent>
         <CardFooter className="p-4 pt-0">
           <TooltipProvider>

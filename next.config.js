@@ -7,7 +7,7 @@ import "./src/env.js";
 /** @type {import("next").NextConfig} */
 const config = {
   images: {
-    domains: ["image.tmdb.org", "cdn.movieofthenight.com", "placehold.co"],
+    domains: ["image.tmdb.org", "cdn.movieofthenight.com", "placehold.co", "www.movieofthenight.com"],
     remotePatterns: [
       {
         protocol: "https",
