@@ -32,6 +32,18 @@ export default async function Home() {
 				year: movie.releaseDate ? new Date(movie.releaseDate).getFullYear().toString() : "",
 				rating: movie.voteAverage,
 				streamingServices: movie.streamingOptions.map((option: any) => option.provider),
+				// Additional data for modal
+				fullContent: {
+					overview: movie.overview,
+					backdropPath: movie.backdropPath,
+					releaseDate: movie.releaseDate ? movie.releaseDate.toISOString() : null,
+					runtime: movie.runtime,
+					genres: movie.genres,
+					streamingServices: movie.streamingOptions.map((option: any) => ({
+						name: option.provider.charAt(0).toUpperCase() + option.provider.slice(1), // Capitalize provider name
+						url: option.url
+					}))
+				}
 			}));
 		};
 
@@ -45,6 +57,18 @@ export default async function Home() {
 				year: tvShow.firstAirDate ? new Date(tvShow.firstAirDate).getFullYear().toString() : "",
 				rating: tvShow.voteAverage,
 				streamingServices: tvShow.streamingOptions.map((option: any) => option.provider),
+				// Additional data for modal
+				fullContent: {
+					overview: tvShow.overview,
+					backdropPath: tvShow.backdropPath,
+					releaseDate: tvShow.firstAirDate ? tvShow.firstAirDate.toISOString() : null,
+					runtime: tvShow.episodeRuntime?.[0] || null,
+					genres: tvShow.genres,
+					streamingServices: tvShow.streamingOptions.map((option: any) => ({
+						name: option.provider.charAt(0).toUpperCase() + option.provider.slice(1), // Capitalize provider name
+						url: option.url
+					}))
+				}
 			}));
 		};
 
@@ -66,6 +90,20 @@ export default async function Home() {
 					year: "1994",
 					rating: 8.7,
 					streamingServices: ["netflix", "hbo"],
+					fullContent: {
+						overview: "Framed in the 1940s for the double murder of his wife and her lover, upstanding banker Andy Dufresne begins a new life at the Shawshank prison, where he puts his accounting skills to work for an amoral warden.",
+						backdropPath: "/kXfqcdQKsToO0OUXHcrrNCHDBzO.jpg",
+						releaseDate: "1994-09-23",
+						runtime: 142,
+						genres: [
+							{ id: "18", name: "Drama" },
+							{ id: "80", name: "Crime" }
+						],
+						streamingServices: [
+							{ name: "Netflix", url: "https://www.netflix.com/title/tt0111161" },
+							{ name: "HBO Max", url: "https://www.hbomax.com/feature/urn:hbo:feature:GXdu2ZAglVJuAuwEAADbA" }
+						]
+					}
 				},
 				{
 					id: "tt0068646",
@@ -75,6 +113,19 @@ export default async function Home() {
 					year: "1972",
 					rating: 8.7,
 					streamingServices: ["paramount"],
+					fullContent: {
+						overview: "Spanning the years 1945 to 1955, a chronicle of the fictional Italian-American Corleone crime family. When organized crime family patriarch, Vito Corleone barely survives an attempt on his life, his youngest son, Michael steps in to take care of the would-be killers, launching a campaign of bloody revenge.",
+						backdropPath: "/tmU7GeKVybMWFButWEGl2M4GeiP.jpg",
+						releaseDate: "1972-03-14",
+						runtime: 175,
+						genres: [
+							{ id: "18", name: "Drama" },
+							{ id: "80", name: "Crime" }
+						],
+						streamingServices: [
+							{ name: "Paramount+", url: "https://www.paramountplus.com/movies/video/QwP_Nx7681SnCBrjmNXOzSfbmBCvRR_l/" }
+						]
+					}
 				},
 				{
 					id: "tt0468569",
@@ -243,6 +294,7 @@ export default async function Home() {
 						title="Popular Movies"
 						viewAllHref="/movies"
 						items={formattedMovies}
+						userId={session?.user?.id || null}
 					/>
 
 					{/* Popular TV Shows Section */}
@@ -250,12 +302,14 @@ export default async function Home() {
 						title="Popular TV Shows"
 						viewAllHref="/tv-shows"
 						items={formattedTvShows}
+						userId={session?.user?.id || null}
 					/>
 
 					{/* Trending Now Section */}
 					<ContentSection
 						title="Trending Now"
 						items={trendingContent}
+						userId={session?.user?.id || null}
 					/>
 				</div>
 			</HydrateClient>

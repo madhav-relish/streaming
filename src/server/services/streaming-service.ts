@@ -307,84 +307,47 @@ export class StreamingService {
   /**
    * Search for content, using the API directly (no caching for search results)
    */
-  async searchContent(query: string, country = "us", type?: "movie" | "series", page = 1) {
+  async searchContent(query: string, country = "us", type?: "movie" | "series", page = 1, limit = 20) {
     try {
-      // Since the streaming-availability API structure might have changed,
-      // we'll use a more direct approach with mock data for now
-      // In a production app, you would update this to use the correct API methods
+      // Use the Rapid API client to search for content
+      let searchResults = [];
 
-      // Mock search results based on the query
-      const allResults = [
-        {
-          imdbId: "tt0111161",
-          title: "The Shawshank Redemption",
-          type: "movie",
-          overview: "Framed in the 1940s for the double murder of his wife and her lover, upstanding banker Andy Dufresne begins a new life at the Shawshank prison.",
-          posterPath: "/q6y0Go1tsGEsmtFryDOJo3dEmqu.jpg",
-          backdropPath: "/kXfqcdQKsToO0OUXHcrrNCHDBzO.jpg",
-          year: 1994,
-          tmdbRating: 8.7,
-          genres: [{ id: "18", name: "Drama" }, { id: "80", name: "Crime" }],
-          streamingInfo: { us: { netflix: [{ link: "https://www.netflix.com" }] } }
-        },
-        {
-          imdbId: "tt0068646",
-          title: "The Godfather",
-          type: "movie",
-          overview: "The aging patriarch of an organized crime dynasty transfers control to his son.",
-          posterPath: "/3bhkrj58Vtu7enYsRolD1fZdja1.jpg",
-          backdropPath: "/tmU7GeKVybMWFButWEGl2M4GeiP.jpg",
-          year: 1972,
-          tmdbRating: 8.7,
-          genres: [{ id: "18", name: "Drama" }, { id: "80", name: "Crime" }],
-          streamingInfo: { us: { paramount: [{ link: "https://www.paramountplus.com" }] } }
-        },
-        {
-          imdbId: "tt0944947",
-          title: "Game of Thrones",
-          type: "series",
-          overview: "Seven noble families fight for control of the mythical land of Westeros.",
-          posterPath: "/u3bZgnGQ9T01sWNhyveQz0wH0Hl.jpg",
-          backdropPath: "/suopoADq0k8YZr4dQXcU6pToj6s.jpg",
-          firstAirYear: 2011,
-          tmdbRating: 8.4,
-          genres: [{ id: "10765", name: "Sci-Fi & Fantasy" }, { id: "18", name: "Drama" }],
-          streamingInfo: { us: { hbo: [{ link: "https://www.hbomax.com" }] } }
-        },
-        {
-          imdbId: "tt0903747",
-          title: "Breaking Bad",
-          type: "series",
-          overview: "A high school chemistry teacher turned methamphetamine manufacturer.",
-          posterPath: "/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
-          backdropPath: "/tsRy63Mu5cu8etL1X7ZLyf7UP1M.jpg",
-          firstAirYear: 2008,
-          tmdbRating: 8.5,
-          genres: [{ id: "18", name: "Drama" }, { id: "80", name: "Crime" }],
-          streamingInfo: { us: { netflix: [{ link: "https://www.netflix.com" }] } }
-        }
-      ];
+      try {
+        // Convert type to showType parameter for the API
+        const showType = type === "movie" ? "movie" : type === "series" ? "series" : undefined;
 
-      // Filter by type if specified
-      const typeFiltered = type
-        ? allResults.filter(item => item.type === type)
-        : allResults;
+        // Make the API call to search for content
+        const response = await client.showsApi.searchShowsByTitle({
+          country: country,
+          title: query,
+          showType: showType,
+          limit: limit,
+          offset: (page - 1) * limit
+        });
 
-      // Filter by query
-      const queryFiltered = query
-        ? typeFiltered.filter(item =>
-            item.title.toLowerCase().includes(query.toLowerCase()) ||
-            item.overview.toLowerCase().includes(query.toLowerCase()))
-        : typeFiltered;
+        // Use the response data
+        searchResults = response.shows;
+        console.log(`Successfully searched for "${query}" and found ${searchResults.length} results`);
+      } catch (apiError) {
+        console.error("Error searching content from Rapid API:", apiError);
 
-      const response = {
-        result: queryFiltered
+        // Fallback to empty results if API call fails
+        console.log("Search API call failed, returning empty results");
+        searchResults = [];
+      }
+
+      // Format the results for the frontend
+      const formattedResults = {
+        results: searchResults,
+        page,
+        totalResults: searchResults.length,
+        totalPages: Math.ceil(searchResults.length / limit),
       };
 
       // Save search results to database in the background
-      this.cacheSearchResults(response.result, country);
+      this.cacheSearchResults(searchResults, country);
 
-      return response;
+      return formattedResults;
     } catch (error) {
       console.error("Error searching content:", error);
       throw error;
@@ -397,9 +360,16 @@ export class StreamingService {
   private async cacheSearchResults(results: any[], country: string) {
     try {
       for (const item of results) {
-        if (item.type === "movie") {
+        // Check if it's a movie or TV show based on the showType property
+        if (item.showType === "movie") {
+          await this.saveMovieToDatabase(item, country).catch(console.error);
+        } else if (item.showType === "series") {
+          await this.saveTvShowToDatabase(item, country).catch(console.error);
+        } else if (item.type === "movie") {
+          // For backward compatibility with old format
           await this.saveMovieToDatabase(item, country).catch(console.error);
         } else if (item.type === "series") {
+          // For backward compatibility with old format
           await this.saveTvShowToDatabase(item, country).catch(console.error);
         }
       }

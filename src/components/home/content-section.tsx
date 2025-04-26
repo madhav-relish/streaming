@@ -19,9 +19,19 @@ interface ContentSectionProps {
     year?: string | null;
     rating?: number | null;
     streamingServices?: string[];
+    // Additional data for modal
+    fullContent?: {
+      overview?: string | null;
+      backdropPath?: string | null;
+      releaseDate?: string | null;
+      runtime?: number | null;
+      genres?: { id: string; name: string }[];
+      streamingServices?: { name: string; url: string }[];
+    };
   }[];
   onAddToWatchlist?: (id: string, type: "movie" | "tv") => void;
   watchlistIds?: string[];
+  userId?: string | null;
 }
 
 export function ContentSection({
@@ -30,6 +40,7 @@ export function ContentSection({
   items,
   onAddToWatchlist,
   watchlistIds = [],
+  userId,
 }: ContentSectionProps) {
   if (items.length === 0) {
     return null;
@@ -67,6 +78,9 @@ export function ContentSection({
                       ? () => onAddToWatchlist(item.id, item.type)
                       : undefined
                   }
+                  userId={userId}
+                  fullContent={item.fullContent}
+                  watchlistItemId={watchlistIds?.includes(item.id) ? item.id : ""}
                 />
               </div>
             ))}
