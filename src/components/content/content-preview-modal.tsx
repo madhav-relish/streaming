@@ -168,7 +168,7 @@ export function ContentPreviewModal({
             )}
 
             <Button variant="outline" asChild>
-              <Link href={`/${content.type}s/${content.id}`}>
+              <Link href={content.type === "tv" ? `/tv-shows/${content.id}` : `/movies/${content.id}`}>
                 <Info className="mr-2 h-5 w-5" />
                 More Details
               </Link>

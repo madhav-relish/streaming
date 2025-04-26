@@ -1,4 +1,5 @@
 import { ContentGrid } from "@/components/content/content-grid";
+import { ContentPagination } from "@/components/content/content-pagination";
 import { auth } from "@/server/auth";
 import { streamingService } from "@/server/services/streaming-service";
 
@@ -7,12 +8,27 @@ export const metadata = {
   description: "Browse and discover movies from all your favorite streaming platforms in one place.",
 };
 
-export default async function MoviesPage() {
+export const dynamic = 'force-dynamic';
+
+interface MoviesPageProps {
+  searchParams: {
+    page?: string;
+  };
+}
+
+export default async function MoviesPage({ searchParams }: MoviesPageProps) {
   const session = await auth();
+  const currentPage = Number(searchParams.page) || 1;
+  const itemsPerPage = 30;
+  const country = "in"; // Use India as the default country
 
   try {
     // Fetch movies from the database (or API if not cached)
-    const movies = await streamingService.getPopularMovies("us", 1, 30);
+    const movies = await streamingService.getPopularMovies(country, currentPage, itemsPerPage);
+
+    // Get total count for pagination
+    const totalCount = await streamingService.getMovieCount(country);
+    const totalPages = Math.ceil(totalCount / itemsPerPage) || 1;
 
     // Format movie data for content grid
     const formattedMovies = movies.map((movie) => ({
@@ -23,11 +39,21 @@ export default async function MoviesPage() {
       year: movie.releaseDate ? new Date(movie.releaseDate).getFullYear().toString() : "",
       rating: movie.voteAverage,
       streamingServices: movie.streamingOptions.map((option: any) => option.provider),
+      fullContent: {
+        overview: movie.overview,
+        backdropPath: movie.backdropPath,
+        releaseDate: movie.releaseDate ? movie.releaseDate.toISOString() : null,
+        genres: movie.genres.map((genre: any) => ({ id: genre.id, name: genre.name })),
+        streamingServices: movie.streamingOptions.map((option: any) => ({
+          name: option.provider.charAt(0).toUpperCase() + option.provider.slice(1),
+          url: option.url
+        }))
+      }
     }));
 
     // If we don't have enough data from the database yet, use mock data
     if (formattedMovies.length < 10) {
-      // Mock data for movies
+      // Mock data for movies with fullContent
       const mockMovies = [
         {
           id: "tt0111161",
@@ -37,6 +63,16 @@ export default async function MoviesPage() {
           year: "1994",
           rating: 8.7,
           streamingServices: ["netflix", "hbo"],
+          fullContent: {
+            overview: "Framed in the 1940s for the double murder of his wife and her lover, upstanding banker Andy Dufresne begins a new life at the Shawshank prison, where he puts his accounting skills to work for an amoral warden.",
+            backdropPath: "/kXfqcdQKsToO0OUXHcrrNCHDBzO.jpg",
+            releaseDate: "1994-09-23",
+            genres: [{ id: "18", name: "Drama" }, { id: "80", name: "Crime" }],
+            streamingServices: [
+              { name: "Netflix", url: "https://www.netflix.com/title/70005379" },
+              { name: "HBO", url: "https://www.hbo.com/movies/the-shawshank-redemption" }
+            ]
+          }
         },
         {
           id: "tt0068646",
@@ -46,79 +82,17 @@ export default async function MoviesPage() {
           year: "1972",
           rating: 8.7,
           streamingServices: ["paramount"],
+          fullContent: {
+            overview: "Spanning the years 1945 to 1955, a chronicle of the fictional Italian-American Corleone crime family. When organized crime family patriarch, Vito Corleone barely survives an attempt on his life, his youngest son, Michael steps in to take care of the would-be killers, launching a campaign of bloody revenge.",
+            backdropPath: "/tmU7GeKVybMWFButWEGl2M4GeiP.jpg",
+            releaseDate: "1972-03-14",
+            genres: [{ id: "18", name: "Drama" }, { id: "80", name: "Crime" }],
+            streamingServices: [
+              { name: "Paramount", url: "https://www.paramountplus.com/movies/godfather/LpH_xLcPJoF8JpLdcbQHVPIbxe0Jckkg/" }
+            ]
+          }
         },
-        {
-          id: "tt0468569",
-          title: "The Dark Knight",
-          posterPath: "/qJ2tW6WMUDux911r6m7haRef0WH.jpg",
-          type: "movie" as const,
-          year: "2008",
-          rating: 8.5,
-          streamingServices: ["hbo", "netflix"],
-        },
-        {
-          id: "tt0167260",
-          title: "The Lord of the Rings: The Return of the King",
-          posterPath: "/rCzpDGLbOoPwLjy3OAm5NUPOTrC.jpg",
-          type: "movie" as const,
-          year: "2003",
-          rating: 8.5,
-          streamingServices: ["hbo", "prime"],
-        },
-        {
-          id: "tt0110912",
-          title: "Pulp Fiction",
-          posterPath: "/d5iIlFn5s0ImszYzBPb8JPIfbXD.jpg",
-          type: "movie" as const,
-          year: "1994",
-          rating: 8.5,
-          streamingServices: ["netflix"],
-        },
-        {
-          id: "tt0137523",
-          title: "Fight Club",
-          posterPath: "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg",
-          type: "movie" as const,
-          year: "1999",
-          rating: 8.4,
-          streamingServices: ["hulu", "prime"],
-        },
-        {
-          id: "tt0109830",
-          title: "Forrest Gump",
-          posterPath: "/arw2vcBveWOVZr6pxd9XTd1TdQa.jpg",
-          type: "movie" as const,
-          year: "1994",
-          rating: 8.4,
-          streamingServices: ["netflix", "paramount"],
-        },
-        {
-          id: "tt0133093",
-          title: "The Matrix",
-          posterPath: "/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg",
-          type: "movie" as const,
-          year: "1999",
-          rating: 8.3,
-          streamingServices: ["hbo", "netflix"],
-        },
-        {
-          id: "tt0099685",
-          title: "Goodfellas",
-          posterPath: "/aKuFiU82s5ISJpGZp7YkIr3kCUd.jpg",
-          type: "movie" as const,
-          year: "1990",
-          rating: 8.5,
-          streamingServices: ["netflix"],
-        },
-        {
-          id: "tt0073486",
-          title: "One Flew Over the Cuckoo's Nest",
-          posterPath: "/3jcbDmRFiQ83drXNOvRDeKHxS0C.jpg",
-          type: "movie" as const,
-          year: "1975",
-          rating: 8.5,
-          streamingServices: ["hbo", "prime"],
-        },
+        // Add more mock movies with fullContent...
       ];
 
       // Generate more mock data
@@ -130,16 +104,23 @@ export default async function MoviesPage() {
             ...movie,
             id: movie.id + "_" + result.length,
             rating: Math.round((movie.rating - 0.1 + Math.random() * 0.2) * 10) / 10,
+            fullContent: movie.fullContent ? {
+              ...movie.fullContent,
+              streamingServices: movie.fullContent.streamingServices
+            } : undefined
           }));
           result.push(...newMovies);
         }
         return result.slice(0, count);
       };
 
+      const mockTotalPages = 10; // Simulate 10 pages of mock data
+
       return (
         <div className="container py-8">
           <h1 className="text-3xl font-bold mb-6">Movies</h1>
-          <ContentGrid items={generateMoreMovies(30)} />
+          <ContentGrid items={generateMoreMovies(itemsPerPage)} />
+          <ContentPagination currentPage={currentPage} totalPages={mockTotalPages} />
         </div>
       );
     }
@@ -148,6 +129,7 @@ export default async function MoviesPage() {
       <div className="container py-8">
         <h1 className="text-3xl font-bold mb-6">Movies</h1>
         <ContentGrid items={formattedMovies} />
+        <ContentPagination currentPage={currentPage} totalPages={totalPages} />
       </div>
     );
   } catch (error) {

@@ -74,36 +74,6 @@ export default async function TvShowPage({ params }: TvShowPageProps) {
     }
   }
 
-  // Fetch TV show data from the streaming service
-  try {
-    const tvShowData = await streamingService.getTvShow(tvShowId, country);
-
-    if (!tvShowData) {
-      notFound();
-    }
-
-    // Format the TV show data for display
-    const tvShow = {
-      id: tvShowData.id,
-      title: tvShowData.title,
-      overview: tvShowData.overview || "No overview available.",
-      posterPath: tvShowData.posterPath,
-      backdropPath: tvShowData.backdropPath,
-      firstAirDate: tvShowData.firstAirDate ? tvShowData.firstAirDate.toISOString() : null,
-      lastAirDate: tvShowData.lastAirDate ? tvShowData.lastAirDate.toISOString() : null,
-      numberOfSeasons: tvShowData.numberOfSeasons || 0,
-      numberOfEpisodes: tvShowData.numberOfEpisodes || 0,
-      voteAverage: tvShowData.voteAverage || 0,
-      genres: tvShowData.genres.map(genre => ({
-        id: genre.id,
-        name: genre.name
-      })),
-      streamingServices: tvShowData.streamingOptions.map(option => ({
-        name: option.provider.charAt(0).toUpperCase() + option.provider.slice(1), // Capitalize provider name
-        url: option.url
-      }))
-    };
-
   // Mock similar TV shows
   const similarTvShows = [
     {
@@ -153,138 +123,182 @@ export default async function TvShowPage({ params }: TvShowPageProps) {
     },
   ];
 
-  // Extract years from air dates
-  const firstAirYear = tvShow.firstAirDate ? new Date(tvShow.firstAirDate).getFullYear() : null;
-  const lastAirYear = tvShow.lastAirDate ? new Date(tvShow.lastAirDate).getFullYear() : null;
-  const yearRange = !firstAirYear ? "Unknown" :
-                    !lastAirYear || firstAirYear === lastAirYear ?
-                    firstAirYear.toString() :
-                    `${firstAirYear}–${lastAirYear}`;
+  try {
+    // Fetch TV show data from the streaming service
+    const tvShowData = await streamingService.getTvShow(tvShowId, country);
 
-  return (
-    <div>
-      {/* Hero Section with Backdrop */}
-      <div className="relative w-full h-[70vh] overflow-hidden">
-        {/* Backdrop Image */}
-        <div className="absolute inset-0">
-          <SafeImage
-            src={tvShow.backdropPath}
-            alt={tvShow.title}
-            fill
-            className="object-cover"
-            priority
-          />
-          {/* Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/10" />
-        </div>
+    if (!tvShowData) {
+      notFound();
+    }
 
-        {/* Content */}
-        <div className="container relative h-full flex items-end pb-16">
-          <div className="flex flex-col md:flex-row gap-8">
-            {/* Poster */}
-            <div className="hidden md:block flex-shrink-0 w-64 rounded-lg overflow-hidden shadow-lg">
-              <SafeImage
-                src={tvShow.posterPath}
-                alt={tvShow.title}
-                width={256}
-                height={384}
-                className="w-full h-auto"
-              />
-            </div>
+    // Format the TV show data for display
+    const tvShow = {
+      id: tvShowData.id,
+      title: tvShowData.title,
+      overview: tvShowData.overview || "No overview available.",
+      posterPath: tvShowData.posterPath,
+      backdropPath: tvShowData.backdropPath,
+      firstAirDate: tvShowData.firstAirDate ? tvShowData.firstAirDate.toISOString() : null,
+      lastAirDate: tvShowData.lastAirDate ? tvShowData.lastAirDate.toISOString() : null,
+      numberOfSeasons: tvShowData.numberOfSeasons || 0,
+      numberOfEpisodes: tvShowData.numberOfEpisodes || 0,
+      voteAverage: tvShowData.voteAverage || 0,
+      genres: tvShowData.genres.map(genre => ({
+        id: genre.id,
+        name: genre.name
+      })),
+      streamingServices: tvShowData.streamingOptions.map(option => ({
+        name: option.provider.charAt(0).toUpperCase() + option.provider.slice(1), // Capitalize provider name
+        url: option.url
+      }))
+    };
 
-            {/* Details */}
-            <div className="flex-grow space-y-4">
-              <h1 className="text-4xl font-bold tracking-tight">
-                {tvShow.title} <span className="text-muted-foreground">({yearRange})</span>
-              </h1>
+    // Extract years from air dates
+    const firstAirYear = tvShow.firstAirDate ? new Date(tvShow.firstAirDate).getFullYear() : null;
+    const lastAirYear = tvShow.lastAirDate ? new Date(tvShow.lastAirDate).getFullYear() : null;
+    const yearRange = !firstAirYear ? "Unknown" :
+                      !lastAirYear || firstAirYear === lastAirYear ?
+                      firstAirYear.toString() :
+                      `${firstAirYear}–${lastAirYear}`;
 
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <div className="flex items-center">
-                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
-                  <span>{tvShow.voteAverage.toFixed(1)}</span>
+    return (
+      <div>
+        {/* Hero Section with Backdrop */}
+        <div className="relative w-full h-[70vh] overflow-hidden">
+          {/* Backdrop Image */}
+          <div className="absolute inset-0">
+            <SafeImage
+              src={tvShow.backdropPath}
+              alt={tvShow.title}
+              fill
+              className="object-cover"
+              priority
+            />
+            {/* Gradient Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/10" />
+          </div>
+
+          {/* Content */}
+          <div className="container relative h-full flex items-end pb-16">
+            <div className="flex flex-col md:flex-row gap-8">
+              {/* Poster */}
+              <div className="hidden md:block flex-shrink-0 w-64 rounded-lg overflow-hidden shadow-lg">
+                <SafeImage
+                  src={tvShow.posterPath}
+                  alt={tvShow.title}
+                  width={256}
+                  height={384}
+                  className="w-full h-auto"
+                />
+              </div>
+
+              {/* Details */}
+              <div className="flex-grow space-y-4">
+                <h1 className="text-4xl font-bold tracking-tight">
+                  {tvShow.title} <span className="text-muted-foreground">({yearRange})</span>
+                </h1>
+
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <div className="flex items-center">
+                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
+                    <span>{tvShow.voteAverage.toFixed(1)}</span>
+                  </div>
+                  {tvShow.numberOfSeasons > 0 && (
+                    <>
+                      <span className="text-muted-foreground">•</span>
+                      <span>{tvShow.numberOfSeasons} {tvShow.numberOfSeasons === 1 ? "Season" : "Seasons"}</span>
+                    </>
+                  )}
+                  {tvShow.numberOfEpisodes > 0 && (
+                    <>
+                      <span className="text-muted-foreground">•</span>
+                      <span>{tvShow.numberOfEpisodes} Episodes</span>
+                    </>
+                  )}
                 </div>
-                {tvShow.numberOfSeasons > 0 && (
-                  <>
-                    <span className="text-muted-foreground">•</span>
-                    <span>{tvShow.numberOfSeasons} {tvShow.numberOfSeasons === 1 ? "Season" : "Seasons"}</span>
-                  </>
-                )}
-                {tvShow.numberOfEpisodes > 0 && (
-                  <>
-                    <span className="text-muted-foreground">•</span>
-                    <span>{tvShow.numberOfEpisodes} Episodes</span>
-                  </>
-                )}
-              </div>
 
-              <div className="flex flex-wrap gap-2">
-                {tvShow.genres.map((genre) => (
-                  <Link key={genre.id} href={`/genres/${genre.id}`}>
-                    <Badge variant="secondary">{genre.name}</Badge>
-                  </Link>
-                ))}
-              </div>
-
-              <p className="text-lg text-muted-foreground max-w-3xl">
-                {tvShow.overview}
-              </p>
-
-              <div className="flex flex-wrap gap-3 pt-4">
-                {tvShow.streamingServices.length > 0 ? (
-                  <Button asChild size="lg">
-                    <Link href={`/watch/tv/${tvShow.id}?service=${encodeURIComponent(tvShow.streamingServices[0].name)}&url=${encodeURIComponent(tvShow.streamingServices[0].url)}&title=${encodeURIComponent(tvShow.title)}&poster=${encodeURIComponent(tvShow.posterPath || '')}`}>
-                      <Play className="mr-2 h-5 w-5" />
-                      Watch on {tvShow.streamingServices[0].name}
+                <div className="flex flex-wrap gap-2">
+                  {tvShow.genres.map((genre) => (
+                    <Link key={genre.id} href={`/genres/${genre.id}`}>
+                      <Badge variant="secondary">{genre.name}</Badge>
                     </Link>
-                  </Button>
-                ) : (
-                  <Button disabled size="lg">
-                    <Play className="mr-2 h-5 w-5" />
-                    Not Available for Streaming
-                  </Button>
-                )}
+                  ))}
+                </div>
 
-                {session?.user ? (
-                  <WatchlistButton
-                    contentId={tvShow.id}
-                    contentType="tv"
-                    isInWatchlist={isInWatchlist}
-                    watchlistItemId={watchlistItemId}
-                    variant="outline"
-                    size="lg"
-                  />
-                ) : (
-                  <Button variant="outline" size="lg" asChild>
-                    <Link href="/api/auth/signin">Sign in to add to Watchlist</Link>
-                  </Button>
-                )}
+                <p className="text-lg text-muted-foreground max-w-3xl">
+                  {tvShow.overview}
+                </p>
+
+                <div className="flex flex-wrap gap-3 pt-4">
+                  {tvShow.streamingServices.length > 0 ? (
+                    <Button asChild size="lg">
+                      <Link href={`/watch/tv/${tvShow.id}?service=${encodeURIComponent(tvShow.streamingServices[0].name)}&url=${encodeURIComponent(tvShow.streamingServices[0].url)}&title=${encodeURIComponent(tvShow.title)}&poster=${encodeURIComponent(tvShow.posterPath || '')}`}>
+                        <Play className="mr-2 h-5 w-5" />
+                        Watch on {tvShow.streamingServices[0].name}
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button disabled size="lg">
+                      <Play className="mr-2 h-5 w-5" />
+                      Not Available for Streaming
+                    </Button>
+                  )}
+
+                  {session?.user ? (
+                    <WatchlistButton
+                      contentId={tvShow.id}
+                      contentType="tv"
+                      isInWatchlist={isInWatchlist}
+                      watchlistItemId={watchlistItemId}
+                      variant="outline"
+                      size="lg"
+                    />
+                  ) : (
+                    <Button variant="outline" size="lg" asChild>
+                      <Link href="/api/auth/signin">Sign in to add to Watchlist</Link>
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Streaming Options */}
-      {tvShow.streamingServices.length > 0 && (
-        <div className="container py-8 border-b">
-          <h2 className="text-2xl font-bold mb-4">Where to Watch</h2>
-          <div className="flex flex-wrap gap-4">
-            {tvShow.streamingServices.map((service, index) => (
-              <Button key={index} asChild variant="outline">
-                <Link href={`/watch/tv/${tvShow.id}?service=${encodeURIComponent(service.name)}&url=${encodeURIComponent(service.url)}&title=${encodeURIComponent(tvShow.title)}&poster=${encodeURIComponent(tvShow.posterPath || '')}`}>
-                  {service.name}
-                </Link>
-              </Button>
-            ))}
+        {/* Streaming Options */}
+        {tvShow.streamingServices.length > 0 && (
+          <div className="container py-8 border-b">
+            <h2 className="text-2xl font-bold mb-4">Where to Watch</h2>
+            <div className="flex flex-wrap gap-4">
+              {tvShow.streamingServices.map((service, index) => (
+                <Button key={index} asChild variant="outline">
+                  <Link href={`/watch/tv/${tvShow.id}?service=${encodeURIComponent(service.name)}&url=${encodeURIComponent(service.url)}&title=${encodeURIComponent(tvShow.title)}&poster=${encodeURIComponent(tvShow.posterPath || '')}`}>
+                    {service.name}
+                  </Link>
+                </Button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Similar TV Shows */}
-      <ContentSection
-        title="Similar TV Shows"
-        items={similarTvShows}
-      />
-    </div>
-  );
+        {/* Similar TV Shows */}
+        <ContentSection
+          title="Similar TV Shows"
+          items={similarTvShows}
+        />
+      </div>
+    );
+  } catch (error) {
+    console.error("Error fetching TV show data:", error);
+    return (
+      <div className="container py-20 text-center">
+        <h1 className="text-3xl font-bold mb-4">TV Show Not Found</h1>
+        <p className="text-muted-foreground mb-8">
+          We couldn't find the TV show you're looking for. It may have been removed or the ID is incorrect.
+        </p>
+        <Button asChild>
+          <Link href="/tv-shows">Back to TV Shows</Link>
+        </Button>
+      </div>
+    );
+  }
 }

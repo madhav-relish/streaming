@@ -27,6 +27,430 @@ export class StreamingServiceError extends Error {
  */
 export class StreamingService {
   /**
+   * Get the total count of movies in the database
+   */
+  async getMovieCount(country = "in") {
+    try {
+      const count = await prisma.movie.count({
+        where: {
+          streamingOptions: {
+            some: {
+              region: country,
+            },
+          },
+        },
+      });
+
+      // If we have a reasonable number of movies in the database, return that count
+      if (count > 0) {
+        return count;
+      }
+
+      // Otherwise, return a default count that will allow for multiple pages
+      return 200; // This will give about 7 pages with 30 items per page
+    } catch (error) {
+      console.error("Error getting movie count:", error);
+      return 200; // Default fallback
+    }
+  }
+
+  /**
+   * Get the total count of TV shows in the database
+   */
+  async getTvShowCount(country = "in") {
+    try {
+      const count = await prisma.tvShow.count({
+        where: {
+          streamingOptions: {
+            some: {
+              region: country,
+            },
+          },
+        },
+      });
+
+      // If we have a reasonable number of TV shows in the database, return that count
+      if (count > 0) {
+        return count;
+      }
+
+      // Otherwise, return a default count that will allow for multiple pages
+      return 200; // This will give about 7 pages with 30 items per page
+    } catch (error) {
+      console.error("Error getting TV show count:", error);
+      return 200; // Default fallback
+    }
+  }
+
+  /**
+   * Fetch all available movies from the API and store them in the database
+   * This is a long-running operation that should be called from an admin endpoint
+   */
+  async fetchAllMoviesFromAPI(
+    country = "in",
+    maxPages = 10,
+    progressCallback?: (progress: {
+      processedItems: number;
+      totalItems: number;
+      currentPage: number;
+    }) => void,
+    services: string[] = []
+  ) {
+    console.log(`Starting to fetch all movies from API for country: ${country}`);
+    if (services.length > 0) {
+      console.log(`Filtering for services: ${services.join(', ')}`);
+    } else {
+      console.log(`Fetching for all services`);
+    }
+
+    const limit = 100; // Maximum allowed by the API
+    let totalFetched = 0;
+    let allMovies: any[] = [];
+    let estimatedTotal = maxPages * limit; // Initial estimate
+    let currentPage = 1;
+
+    try {
+      // Use auto-pagination to fetch movies
+      console.log(`Using auto-pagination to fetch up to ${maxPages} pages of movies`);
+
+      // Create the auto-pagination iterator
+      const moviesIterator = client.showsApi.searchShowsByFiltersWithAutoPagination({
+        country: country,
+        showType: "movie",
+        orderBy: "popularity_1year",
+        limit: limit,
+      } as any, maxPages);
+
+      // Initialize a batch of movies to process
+      let movieBatch: any[] = [];
+      let batchCount = 0;
+      const batchSize = 20; // Process in smaller batches to show progress
+
+      // Update initial progress
+      if (progressCallback) {
+        progressCallback({
+          processedItems: totalFetched,
+          totalItems: estimatedTotal,
+          currentPage: currentPage
+        });
+      }
+
+      // Iterate through all movies from auto-pagination
+      for await (const movie of moviesIterator) {
+        // Add movie to the current batch
+        movieBatch.push(movie);
+
+        // When batch is full or on the last item, process it
+        if (movieBatch.length >= batchSize) {
+          batchCount++;
+          console.log(`Processing movie batch ${batchCount} with ${movieBatch.length} movies`);
+
+          // Filter movies by service if services are specified
+          let filteredMovies = movieBatch;
+          if (services.length > 0) {
+            filteredMovies = movieBatch.filter((movie: any) => {
+              // Check if the movie is available on any of the specified services
+              if (!movie.streamingOptions || !movie.streamingOptions[country]) {
+                return false;
+              }
+
+              return movie.streamingOptions[country].some((option: any) => {
+                const serviceId = option.service?.id;
+
+                // Special handling for Indian services
+                if (country === "in" && serviceId === "disney" && services.includes("hotstar")) {
+                  return true;
+                }
+
+                return services.includes(serviceId);
+              });
+            });
+
+            console.log(`Filtered batch to ${filteredMovies.length} movies available on specified services`);
+          }
+
+          // Save filtered movies to database
+          const savedMovies = await Promise.all(
+            filteredMovies.map((movie: any) => this.saveMovieToDatabase(movie, country).catch(error => {
+              console.error(`Error saving movie ${movie.imdbId}:`, error);
+              return null;
+            }))
+          );
+
+          // Filter out null values (failed saves)
+          const validSavedMovies = savedMovies.filter(movie => movie !== null);
+          allMovies = [...allMovies, ...validSavedMovies];
+
+          // Update counts
+          totalFetched += filteredMovies.length;
+          currentPage = Math.ceil(totalFetched / limit) + 1;
+
+          // Update progress
+          if (progressCallback) {
+            progressCallback({
+              processedItems: totalFetched,
+              totalItems: estimatedTotal,
+              currentPage: currentPage
+            });
+          }
+
+          // Clear the batch
+          movieBatch = [];
+
+          // Add a small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      // Process any remaining movies in the last batch
+      if (movieBatch.length > 0) {
+        console.log(`Processing final movie batch with ${movieBatch.length} movies`);
+
+        // Filter movies by service if services are specified
+        let filteredMovies = movieBatch;
+        if (services.length > 0) {
+          filteredMovies = movieBatch.filter((movie: any) => {
+            // Check if the movie is available on any of the specified services
+            if (!movie.streamingOptions || !movie.streamingOptions[country]) {
+              return false;
+            }
+
+            return movie.streamingOptions[country].some((option: any) => {
+              const serviceId = option.service?.id;
+
+              // Special handling for Indian services
+              if (country === "in" && serviceId === "disney" && services.includes("hotstar")) {
+                return true;
+              }
+
+              return services.includes(serviceId);
+            });
+          });
+
+          console.log(`Filtered final batch to ${filteredMovies.length} movies available on specified services`);
+        }
+
+        // Save filtered movies to database
+        const savedMovies = await Promise.all(
+          filteredMovies.map((movie: any) => this.saveMovieToDatabase(movie, country).catch(error => {
+            console.error(`Error saving movie ${movie.imdbId}:`, error);
+            return null;
+          }))
+        );
+
+        // Filter out null values (failed saves)
+        const validSavedMovies = savedMovies.filter(movie => movie !== null);
+        allMovies = [...allMovies, ...validSavedMovies];
+
+        // Update counts
+        totalFetched += filteredMovies.length;
+      }
+
+      // Update estimated total based on what we've found
+      estimatedTotal = totalFetched;
+
+      // Final progress update
+      if (progressCallback) {
+        progressCallback({
+          processedItems: totalFetched,
+          totalItems: estimatedTotal,
+          currentPage: maxPages
+        });
+      }
+
+      console.log(`Completed fetching all movies. Total fetched: ${totalFetched}, Successfully saved: ${allMovies.length}`);
+      return allMovies;
+    } catch (error) {
+      console.error("Error in fetchAllMoviesFromAPI:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch all available TV shows from the API and store them in the database
+   * This is a long-running operation that should be called from an admin endpoint
+   */
+  async fetchAllTvShowsFromAPI(
+    country = "in",
+    maxPages = 10,
+    progressCallback?: (progress: {
+      processedItems: number;
+      totalItems: number;
+      currentPage: number;
+    }) => void,
+    services: string[] = []
+  ) {
+    console.log(`Starting to fetch all TV shows from API for country: ${country}`);
+    if (services.length > 0) {
+      console.log(`Filtering for services: ${services.join(', ')}`);
+    } else {
+      console.log(`Fetching for all services`);
+    }
+
+    const limit = 100; // Maximum allowed by the API
+    let totalFetched = 0;
+    let allTvShows: any[] = [];
+    let estimatedTotal = maxPages * limit; // Initial estimate
+    let currentPage = 1;
+
+    try {
+      // Use auto-pagination to fetch TV shows
+      console.log(`Using auto-pagination to fetch up to ${maxPages} pages of TV shows`);
+
+      // Create the auto-pagination iterator
+      const tvShowsIterator = client.showsApi.searchShowsByFiltersWithAutoPagination({
+        country: country,
+        showType: "series",
+        orderBy: "popularity_1year",
+        limit: limit,
+      } as any, maxPages);
+
+      // Initialize a batch of TV shows to process
+      let tvShowBatch: any[] = [];
+      let batchCount = 0;
+      const batchSize = 20; // Process in smaller batches to show progress
+
+      // Update initial progress
+      if (progressCallback) {
+        progressCallback({
+          processedItems: totalFetched,
+          totalItems: estimatedTotal,
+          currentPage: currentPage
+        });
+      }
+
+      // Iterate through all TV shows from auto-pagination
+      for await (const tvShow of tvShowsIterator) {
+        // Add TV show to the current batch
+        tvShowBatch.push(tvShow);
+
+        // When batch is full or on the last item, process it
+        if (tvShowBatch.length >= batchSize) {
+          batchCount++;
+          console.log(`Processing TV show batch ${batchCount} with ${tvShowBatch.length} shows`);
+
+          // Filter TV shows by service if services are specified
+          let filteredTvShows = tvShowBatch;
+          if (services.length > 0) {
+            filteredTvShows = tvShowBatch.filter((tvShow: any) => {
+              // Check if the TV show is available on any of the specified services
+              if (!tvShow.streamingOptions || !tvShow.streamingOptions[country]) {
+                return false;
+              }
+
+              return tvShow.streamingOptions[country].some((option: any) => {
+                const serviceId = option.service?.id;
+
+                // Special handling for Indian services
+                if (country === "in" && serviceId === "disney" && services.includes("hotstar")) {
+                  return true;
+                }
+
+                return services.includes(serviceId);
+              });
+            });
+
+            console.log(`Filtered batch to ${filteredTvShows.length} TV shows available on specified services`);
+          }
+
+          // Save filtered TV shows to database
+          const savedTvShows = await Promise.all(
+            filteredTvShows.map((tvShow: any) => this.saveTvShowToDatabase(tvShow, country).catch(error => {
+              console.error(`Error saving TV show ${tvShow.imdbId}:`, error);
+              return null;
+            }))
+          );
+
+          // Filter out null values (failed saves)
+          const validSavedTvShows = savedTvShows.filter(tvShow => tvShow !== null);
+          allTvShows = [...allTvShows, ...validSavedTvShows];
+
+          // Update counts
+          totalFetched += filteredTvShows.length;
+          currentPage = Math.ceil(totalFetched / limit) + 1;
+
+          // Update progress
+          if (progressCallback) {
+            progressCallback({
+              processedItems: totalFetched,
+              totalItems: estimatedTotal,
+              currentPage: currentPage
+            });
+          }
+
+          // Clear the batch
+          tvShowBatch = [];
+
+          // Add a small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      // Process any remaining TV shows in the last batch
+      if (tvShowBatch.length > 0) {
+        console.log(`Processing final TV show batch with ${tvShowBatch.length} shows`);
+
+        // Filter TV shows by service if services are specified
+        let filteredTvShows = tvShowBatch;
+        if (services.length > 0) {
+          filteredTvShows = tvShowBatch.filter((tvShow: any) => {
+            // Check if the TV show is available on any of the specified services
+            if (!tvShow.streamingOptions || !tvShow.streamingOptions[country]) {
+              return false;
+            }
+
+            return tvShow.streamingOptions[country].some((option: any) => {
+              const serviceId = option.service?.id;
+
+              // Special handling for Indian services
+              if (country === "in" && serviceId === "disney" && services.includes("hotstar")) {
+                return true;
+              }
+
+              return services.includes(serviceId);
+            });
+          });
+
+          console.log(`Filtered final batch to ${filteredTvShows.length} TV shows available on specified services`);
+        }
+
+        // Save filtered TV shows to database
+        const savedTvShows = await Promise.all(
+          filteredTvShows.map((tvShow: any) => this.saveTvShowToDatabase(tvShow, country).catch(error => {
+            console.error(`Error saving TV show ${tvShow.imdbId}:`, error);
+            return null;
+          }))
+        );
+
+        // Filter out null values (failed saves)
+        const validSavedTvShows = savedTvShows.filter(tvShow => tvShow !== null);
+        allTvShows = [...allTvShows, ...validSavedTvShows];
+
+        // Update counts
+        totalFetched += filteredTvShows.length;
+      }
+
+      // Update estimated total based on what we've found
+      estimatedTotal = totalFetched;
+
+      // Final progress update
+      if (progressCallback) {
+        progressCallback({
+          processedItems: totalFetched,
+          totalItems: estimatedTotal,
+          currentPage: maxPages
+        });
+      }
+
+      console.log(`Completed fetching all TV shows. Total fetched: ${totalFetched}, Successfully saved: ${allTvShows.length}`);
+      return allTvShows;
+    } catch (error) {
+      console.error("Error in fetchAllTvShowsFromAPI:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Get a movie by its ID, first checking the database, then falling back to the API
    */
   async getMovie(id: string, country = "in") {
@@ -41,11 +465,8 @@ export class StreamingService {
       },
     });
 
-    // If the movie exists and was updated recently, return it
-    if (
-      cachedMovie &&
-      cachedMovie.updatedAt > new Date(Date.now() - 24 * 60 * 60 * 1000)
-    ) {
+    // If the movie exists in the database, return it
+    if (cachedMovie) {
       console.log("Returning cached movie data for", id);
       return cachedMovie;
     }
@@ -99,8 +520,8 @@ export class StreamingService {
       }
 
       // Otherwise, create a new movie record
-      return this.saveMovieToDatabase(movieData, country);
-    } catch (error) {
+      return this.saveMovieToDatabase(movieData as any, country);
+    } catch (error: any) {
       console.error("Error fetching movie data:", error);
       // If API call fails but we have cached data, return that
       if (cachedMovie) return cachedMovie;
@@ -109,41 +530,44 @@ export class StreamingService {
   }
 
   /**
-   * Get popular movies, first checking the database, then falling back to the API
+   * Get popular movies from the database with pagination
    */
   async getPopularMovies(country = "in", page = 1, limit = 20) {
-    // Check if we have cached popular movies that were updated recently
-    const cachedMovies = await prisma.movie.findMany({
-      where: {
-        updatedAt: {
-          gt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        },
-      },
-      include: {
-        genres: true,
-        streamingOptions: {
-          where: { region: country },
-        },
-      },
-      orderBy: {
-        voteCount: "desc",
-      },
-      take: limit,
-      skip: (page - 1) * limit,
-    });
-
-    // If we have enough cached movies, return them
-    if (cachedMovies.length >= limit) {
-      console.log("Returning cached popular movies");
-      return cachedMovies;
-    }
-
-    // Otherwise, fetch from the API
     try {
-      console.log("Fetching popular movies from API");
+      // Get movies from the database with pagination
+      const movies = await prisma.movie.findMany({
+        where: {
+          streamingOptions: {
+            some: {
+              region: country,
+            },
+          },
+        },
+        include: {
+          genres: true,
+          streamingOptions: {
+            where: { region: country },
+          },
+        },
+        orderBy: [
+          { voteAverage: "desc" },
+          { title: "asc" },
+        ],
+        take: limit,
+        skip: (page - 1) * limit,
+      });
+
+      // If we have movies in the database, return them
+      if (movies.length > 0) {
+        console.log(`Returning ${movies.length} movies from database for page ${page}`);
+        return movies;
+      }
+
+      // If we don't have any movies in the database, fetch from the API
+      console.log("No movies found in database, fetching from API");
 
       // Use the Rapid API client to fetch real data
-      let movieResults = [];
+      let movieResults: any[] = [];
 
       try {
         // Make the API call to get popular movies
@@ -153,10 +577,10 @@ export class StreamingService {
           orderBy: "popularity_1year",
           limit: limit,
           offset: (page - 1) * limit
-        });
+        } as any); // Type assertion to bypass TypeScript error
 
         // Use the response data
-        movieResults = response.shows;
+        movieResults = response.shows || [];
         console.log(`Successfully fetched ${movieResults.length} popular movies from Rapid API`);
       } catch (apiError) {
         console.error("Error fetching popular movies from Rapid API:", apiError);
@@ -190,120 +614,134 @@ export class StreamingService {
       // Save all movies to the database
       const savedMovies = await Promise.all(
         movieResults.map((movie: any) =>
-          this.saveMovieToDatabase(movie, country)
+          this.saveMovieToDatabase(movie, country).catch(error => {
+            console.error(`Error saving movie ${movie.imdbId}:`, error);
+            return null;
+          })
         )
       );
 
-      return savedMovies;
+      // Filter out null values (failed saves)
+      const validSavedMovies = savedMovies.filter(movie => movie !== null);
+
+      if (validSavedMovies.length > 0) {
+        return validSavedMovies;
+      }
+
+      // If we couldn't fetch or save any movies, return an empty array
+      return [];
     } catch (error) {
-      console.error("Error fetching popular movies:", error);
-      // If API call fails but we have some cached data, return that
-      if (cachedMovies.length > 0) return cachedMovies;
-      throw error;
+      console.error("Error in getPopularMovies:", error);
+      // Return an empty array instead of throwing an error
+      return [];
     }
   }
 
   /**
-   * Get popular TV shows, first checking the database, then falling back to the API
+   * Get popular TV shows from the database with pagination
    */
   async getPopularTvShows(country = "in", page = 1, limit = 20) {
-    // Check if we have cached popular TV shows that were updated recently
-    const cachedTvShows = await prisma.tvShow.findMany({
-      where: {
-        updatedAt: {
-          gt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        },
-      },
-      include: {
-        genres: true,
-        streamingOptions: {
-          where: { region: country },
-        },
-      },
-      orderBy: {
-        voteCount: "desc",
-      },
-      take: limit,
-      skip: (page - 1) * limit,
-    });
-
-    // If we have enough cached TV shows, return them
-    if (cachedTvShows.length >= limit) {
-      console.log("Returning cached popular TV shows");
-      return cachedTvShows;
-    }
-
-    // Otherwise, fetch from the API
     try {
-      console.log("Fetching popular TV shows from API");
-
-      // Since the streaming-availability API structure might have changed,
-      // we'll use a more direct approach with mock data for now
-      // In a production app, you would update this to use the correct API methods
-
-      // Mock popular TV shows data
-      const response = {
-        result: [
-          {
-            imdbId: "tt0944947",
-            title: "Game of Thrones",
-            overview: "Seven noble families fight for control of the mythical land of Westeros.",
-            posterPath: "/u3bZgnGQ9T01sWNhyveQz0wH0Hl.jpg",
-            backdropPath: "/suopoADq0k8YZr4dQXcU6pToj6s.jpg",
-            firstAirYear: 2011,
-            lastAirYear: 2019,
-            tmdbRating: 8.4,
-            tmdbVotes: 19000,
-            seasons: [1, 2, 3, 4, 5, 6, 7, 8],
-            episodeCount: 73,
-            genres: [
-              { id: "10765", name: "Sci-Fi & Fantasy" },
-              { id: "18", name: "Drama" }
-            ],
-            streamingInfo: {
-              in: {
-                hotstar: [{ link: "https://www.hotstar.com/in/tv/game-of-thrones/8184", type: "SUBSCRIPTION" }]
-              }
-            }
+      // Get TV shows from the database with pagination
+      const tvShows = await prisma.tvShow.findMany({
+        where: {
+          streamingOptions: {
+            some: {
+              region: country,
+            },
           },
-          {
-            imdbId: "tt0903747",
-            title: "Breaking Bad",
-            overview: "When Walter White, a New Mexico chemistry teacher, is diagnosed with Stage III cancer and given a prognosis of only two years left to live.",
-            posterPath: "/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
-            backdropPath: "/tsRy63Mu5cu8etL1X7ZLyf7UP1M.jpg",
-            firstAirYear: 2008,
-            lastAirYear: 2013,
-            tmdbRating: 8.5,
-            tmdbVotes: 17000,
-            seasons: [1, 2, 3, 4, 5],
-            episodeCount: 62,
-            genres: [
-              { id: "18", name: "Drama" },
-              { id: "80", name: "Crime" }
-            ],
-            streamingInfo: {
-              in: {
-                netflix: [{ link: "https://www.netflix.com/in/title/70143836", type: "SUBSCRIPTION" }]
-              }
-            }
+        },
+        include: {
+          genres: true,
+          streamingOptions: {
+            where: { region: country },
+          },
+        },
+        orderBy: [
+          { voteAverage: "desc" },
+          { title: "asc" },
+        ],
+        take: limit,
+        skip: (page - 1) * limit,
+      });
+
+      // If we have TV shows in the database, return them
+      if (tvShows.length > 0) {
+        console.log(`Returning ${tvShows.length} TV shows from database for page ${page}`);
+        return tvShows;
+      }
+
+      // If we don't have any TV shows in the database, fetch from the API
+      console.log("No TV shows found in database, fetching from API");
+
+      // Use the Rapid API client to fetch real data
+      let tvShowResults: any[] = [];
+
+      try {
+        // Make the API call to get popular TV shows
+        const response = await client.showsApi.searchShowsByFilters({
+          country: country,
+          showType: "series",
+          orderBy: "popularity_1year",
+          limit: limit,
+          offset: (page - 1) * limit
+        } as any); // Type assertion to bypass TypeScript error
+
+        // Use the response data
+        tvShowResults = response.shows || [];
+        console.log(`Successfully fetched ${tvShowResults.length} popular TV shows from Rapid API`);
+      } catch (apiError) {
+        console.error("Error fetching popular TV shows from Rapid API:", apiError);
+
+        // Fallback to a list of popular TV show IDs if API call fails
+        console.log("Falling back to predefined popular TV shows");
+
+        // Use our predefined list of popular TV shows
+        const popularTvShowIds = [
+          "tt0944947", // Game of Thrones
+          "tt0903747", // Breaking Bad
+          "tt0108778", // Friends
+          "tt0475784", // Westworld
+          "tt1520211", // The Walking Dead
+        ];
+
+        // Fetch each TV show individually
+        for (const tvShowId of popularTvShowIds) {
+          try {
+            const tvShowData = await client.showsApi.getShow({
+              id: tvShowId,
+              country: country
+            });
+            tvShowResults.push(tvShowData);
+          } catch (error) {
+            console.error(`Error fetching TV show ${tvShowId}:`, error);
           }
-        ]
-      };
+        }
+      }
 
       // Save all TV shows to the database
       const savedTvShows = await Promise.all(
-        response.result.map((tvShow: any) =>
-          this.saveTvShowToDatabase(tvShow, country)
+        tvShowResults.map((tvShow: any) =>
+          this.saveTvShowToDatabase(tvShow, country).catch(error => {
+            console.error(`Error saving TV show ${tvShow.imdbId}:`, error);
+            return null;
+          })
         )
       );
 
-      return savedTvShows;
+      // Filter out null values (failed saves)
+      const validSavedTvShows = savedTvShows.filter(tvShow => tvShow !== null);
+
+      if (validSavedTvShows.length > 0) {
+        return validSavedTvShows;
+      }
+
+      // If we couldn't fetch or save any TV shows, return an empty array
+      return [];
     } catch (error) {
-      console.error("Error fetching popular TV shows:", error);
-      // If API call fails but we have some cached data, return that
-      if (cachedTvShows.length > 0) return cachedTvShows;
-      throw error;
+      console.error("Error in getPopularTvShows:", error);
+      // Return an empty array instead of throwing an error
+      return [];
     }
   }
 
@@ -319,40 +757,70 @@ export class StreamingService {
   ) {
     try {
       // First check if we have cached content for this service
-      const model = type === "movie" ? prisma.movie : prisma.tvShow;
-
-      const cachedContent = await model.findMany({
-        where: {
-          streamingOptions: {
-            some: {
-              provider: service,
-              region: country,
+      if (type === "movie") {
+        const cachedMovies = await prisma.movie.findMany({
+          where: {
+            streamingOptions: {
+              some: {
+                provider: service,
+                region: country,
+              },
             },
           },
-          updatedAt: {
-            gt: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
-          },
-        },
-        include: {
-          genres: true,
-          streamingOptions: {
-            where: {
-              provider: service,
-              region: country,
+          include: {
+            genres: true,
+            streamingOptions: {
+              where: {
+                provider: service,
+                region: country,
+              },
             },
           },
-        },
-        orderBy: {
-          voteAverage: "desc",
-        },
-        take: limit,
-        skip: (page - 1) * limit,
-      });
+          orderBy: [
+            { voteAverage: "desc" },
+            { title: "asc" },
+          ],
+          take: limit,
+          skip: (page - 1) * limit,
+        });
 
-      // If we have enough cached content, return it
-      if (cachedContent.length >= 5) {
-        console.log(`Returning cached ${type} content for ${service}`);
-        return cachedContent;
+        // If we have enough cached content, return it
+        if (cachedMovies.length > 0) {
+          console.log(`Returning ${cachedMovies.length} movies for ${service} from database`);
+          return cachedMovies;
+        }
+      } else {
+        const cachedTvShows = await prisma.tvShow.findMany({
+          where: {
+            streamingOptions: {
+              some: {
+                provider: service,
+                region: country,
+              },
+            },
+          },
+          include: {
+            genres: true,
+            streamingOptions: {
+              where: {
+                provider: service,
+                region: country,
+              },
+            },
+          },
+          orderBy: [
+            { voteAverage: "desc" },
+            { title: "asc" },
+          ],
+          take: limit,
+          skip: (page - 1) * limit,
+        });
+
+        // If we have enough cached content, return it
+        if (cachedTvShows.length > 0) {
+          console.log(`Returning ${cachedTvShows.length} TV shows for ${service} from database`);
+          return cachedTvShows;
+        }
       }
 
       // Otherwise, fetch from the API
@@ -366,10 +834,11 @@ export class StreamingService {
           country: country,
           showType: type,
           orderBy: "popularity_1year",
-        });
+          limit: 100 // Get more results to filter
+        } as any); // Type assertion to bypass TypeScript error
 
         // Filter the results to only include content from the specified service
-        const filteredResults = response.shows.filter((show: any) => {
+        const filteredResults = (response.shows || []).filter((show: any) => {
           if (!show.streamingOptions || !show.streamingOptions[country]) {
             return false;
           }
@@ -401,11 +870,6 @@ export class StreamingService {
         // Limit the results
         const paginatedResults = filteredResults.slice((page - 1) * limit, page * limit);
 
-        // Create a response object similar to the API response
-        const filteredResponse = {
-          shows: paginatedResults
-        };
-
         // Process and save the results
         const results = paginatedResults || [];
         console.log(`Found ${results.length} ${type}s for ${service}`);
@@ -414,24 +878,31 @@ export class StreamingService {
         const savedContent = await Promise.all(
           results.map((item: any) => {
             if (type === "movie") {
-              return this.saveMovieToDatabase(item, country);
+              return this.saveMovieToDatabase(item, country).catch(error => {
+                console.error(`Error saving movie ${item.imdbId}:`, error);
+                return null;
+              });
             } else {
-              return this.saveTvShowToDatabase(item, country);
+              return this.saveTvShowToDatabase(item, country).catch(error => {
+                console.error(`Error saving TV show ${item.imdbId}:`, error);
+                return null;
+              });
             }
           })
         );
 
-        return savedContent;
-      } catch (apiError) {
-        console.error(`Error fetching ${type} content for ${service}:`, apiError);
+        // Filter out null values (failed saves)
+        const validSavedContent = savedContent.filter(item => item !== null);
 
-        // If API call fails but we have some cached data, return that
-        if (cachedContent.length > 0) {
-          console.log(`Returning partial cached ${type} content for ${service}`);
-          return cachedContent;
+        if (validSavedContent.length > 0) {
+          return validSavedContent;
         }
 
-        // Otherwise return empty array
+        // If we couldn't fetch or save any content, return an empty array
+        return [];
+      } catch (apiError) {
+        console.error(`Error fetching ${type} content for ${service}:`, apiError);
+        // Return empty array
         return [];
       }
     } catch (error) {
@@ -446,7 +917,7 @@ export class StreamingService {
   async searchContent(query: string, country = "in", type?: "movie" | "series", page = 1, limit = 20) {
     try {
       // Use the Rapid API client to search for content
-      let searchResults = [];
+      let searchResults: any[] = [];
 
       try {
         // Convert type to showType parameter for the API
@@ -459,10 +930,10 @@ export class StreamingService {
           showType: showType,
           limit: limit,
           offset: (page - 1) * limit
-        });
+        } as any); // Type assertion to bypass TypeScript error
 
         // Use the response data
-        searchResults = response.shows;
+        searchResults = response.shows || [];
         console.log(`Successfully searched for "${query}" and found ${searchResults.length} results`);
       } catch (apiError) {
         console.error("Error searching content from Rapid API:", apiError);
@@ -481,12 +952,22 @@ export class StreamingService {
       };
 
       // Save search results to database in the background
-      this.cacheSearchResults(searchResults, country);
+      if (searchResults.length > 0) {
+        this.cacheSearchResults(searchResults, country).catch(error => {
+          console.error("Error caching search results:", error);
+        });
+      }
 
       return formattedResults;
     } catch (error) {
       console.error("Error searching content:", error);
-      throw error;
+      // Return empty results instead of throwing an error
+      return {
+        results: [],
+        page,
+        totalResults: 0,
+        totalPages: 0,
+      };
     }
   }
 
@@ -529,8 +1010,34 @@ export class StreamingService {
       const streamingOptions = this.extractStreamingOptionsFromRapidAPI(movieData, country);
 
       // Get poster and backdrop paths from the imageSet
-      const posterPath = movieData.imageSet?.verticalPoster?.w480 || null;
-      const backdropPath = movieData.imageSet?.horizontalBackdrop?.w1080 || null;
+      let posterPath = null;
+      let backdropPath = null;
+
+      // Check for imageSet in the API response
+      if (movieData.imageSet) {
+        console.log(`Movie ${movieData.title} has imageSet:`, JSON.stringify(movieData.imageSet, null, 2));
+
+        // Try different image sizes in order of preference for poster
+        posterPath =
+          movieData.imageSet.verticalPoster?.w780 ||
+          movieData.imageSet.verticalPoster?.w500 ||
+          movieData.imageSet.verticalPoster?.w342 ||
+          movieData.imageSet.verticalPoster?.w154 ||
+          movieData.imageSet.verticalPoster?.original ||
+          null;
+
+        // Try different image sizes in order of preference for backdrop
+        backdropPath =
+          movieData.imageSet.horizontalBackdrop?.w1080 ||
+          movieData.imageSet.horizontalBackdrop?.w780 ||
+          movieData.imageSet.horizontalBackdrop?.w500 ||
+          movieData.imageSet.horizontalBackdrop?.original ||
+          null;
+      }
+
+      // Fallback to other image properties if available
+      posterPath = posterPath || (movieData as any).posterURLs?.original || (movieData as any).posterPath || null;
+      backdropPath = backdropPath || (movieData as any).backdropURLs?.original || (movieData as any).backdropPath || null;
 
       // Check if the movie already exists
       const existingMovie = await prisma.movie.findUnique({
@@ -577,36 +1084,74 @@ export class StreamingService {
       // Connect genres
       try {
         for (const genre of genreConnections) {
-          // Check if genre already exists to avoid unique constraint errors
-          const existingGenre = await prisma.genre.findUnique({
-            where: { id: genre.id }
-          });
-
-          if (existingGenre) {
-            // Only update if name has changed
-            if (existingGenre.name !== genre.name) {
-              await prisma.genre.update({
-                where: { id: genre.id },
-                data: { name: genre.name }
-              });
-            }
-          } else {
-            // Create new genre
-            await prisma.genre.create({
-              data: { id: genre.id, name: genre.name }
+          try {
+            // First try to find if the genre already exists by name
+            const existingGenreByName = await prisma.genre.findFirst({
+              where: { name: genre.name }
             });
-          }
 
-          // Connect genre to movie
-          await prisma.movie.update({
-            where: { id: movie.id },
-            data: {
-              genres: {
-              connect: { id: genre.id },
-            },
-          },
-        });
-      }
+            if (existingGenreByName) {
+              // Use the existing genre ID
+              console.log(`Using existing genre ${existingGenreByName.name} with ID ${existingGenreByName.id} instead of ${genre.id}`);
+              genre.id = existingGenreByName.id;
+            } else {
+              // Try to find by ID
+              const existingGenreById = await prisma.genre.findUnique({
+                where: { id: genre.id }
+              });
+
+              if (existingGenreById) {
+                // Update if name has changed
+                if (existingGenreById.name !== genre.name) {
+                  await prisma.genre.update({
+                    where: { id: genre.id },
+                    data: { name: genre.name }
+                  });
+                }
+              } else {
+                // Create new genre
+                try {
+                  await prisma.genre.create({
+                    data: { id: genre.id, name: genre.name }
+                  });
+                } catch (createError: any) {
+                  // If there's a unique constraint error, try one more time to find by name
+                  if (createError.code === 'P2002') {
+                    const retryGenre = await prisma.genre.findFirst({
+                      where: { name: genre.name }
+                    });
+
+                    if (retryGenre) {
+                      genre.id = retryGenre.id;
+                    } else {
+                      // Generate a new ID if we can't create with the provided ID
+                      const newId = `genre_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                      await prisma.genre.create({
+                        data: { id: newId, name: genre.name }
+                      });
+                      genre.id = newId;
+                    }
+                  } else {
+                    throw createError;
+                  }
+                }
+              }
+            }
+
+            // Connect genre to movie
+            await prisma.movie.update({
+              where: { id: movie.id },
+              data: {
+                genres: {
+                  connect: { id: genre.id },
+                },
+              },
+            });
+          } catch (error: any) {
+            console.error(`Error processing genre ${genre.name}:`, error);
+            // Continue with the next genre
+          }
+        }
       } catch (genreError) {
         console.error("Error connecting genres:", genreError);
         // Continue with the process even if genre connection fails
@@ -657,7 +1202,7 @@ export class StreamingService {
           },
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving movie to database:", error);
 
       // Handle specific Prisma errors
@@ -675,9 +1220,9 @@ export class StreamingService {
         );
       } else {
         throw new StreamingServiceError(
-          `Failed to save movie to database: ${error.message}`,
+          `Failed to save movie to database: ${error.message || 'Unknown error'}`,
           'DATABASE_ERROR',
-          error
+          error instanceof Error ? error : new Error(String(error))
         );
       }
     }
@@ -698,9 +1243,9 @@ export class StreamingService {
 
       // Then save the movie as if it were new
       return this.saveMovieToDatabase(movieData, country);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating movie in database:", error);
-      throw error;
+      throw error instanceof Error ? error : new Error(String(error));
     }
   }
 
@@ -737,14 +1282,34 @@ export class StreamingService {
       });
 
       // Get poster and backdrop paths
-      let posterPath = tvShowData.posterPath;
-      let backdropPath = tvShowData.backdropPath;
+      let posterPath = null;
+      let backdropPath = null;
 
-      // For Rapid API format
+      // Check for imageSet in the API response
       if (tvShowData.imageSet) {
-        posterPath = tvShowData.imageSet.verticalPoster?.w480 || posterPath;
-        backdropPath = tvShowData.imageSet.horizontalBackdrop?.w1080 || backdropPath;
+        console.log(`TV Show ${tvShowData.title} has imageSet:`, JSON.stringify(tvShowData.imageSet, null, 2));
+
+        // Try different image sizes in order of preference for poster
+        posterPath =
+          tvShowData.imageSet.verticalPoster?.w780 ||
+          tvShowData.imageSet.verticalPoster?.w500 ||
+          tvShowData.imageSet.verticalPoster?.w342 ||
+          tvShowData.imageSet.verticalPoster?.w154 ||
+          tvShowData.imageSet.verticalPoster?.original ||
+          null;
+
+        // Try different image sizes in order of preference for backdrop
+        backdropPath =
+          tvShowData.imageSet.horizontalBackdrop?.w1080 ||
+          tvShowData.imageSet.horizontalBackdrop?.w780 ||
+          tvShowData.imageSet.horizontalBackdrop?.w500 ||
+          tvShowData.imageSet.horizontalBackdrop?.original ||
+          null;
       }
+
+      // Fallback to other image properties if available
+      posterPath = posterPath || (tvShowData as any).posterURLs?.original || (tvShowData as any).posterPath || null;
+      backdropPath = backdropPath || (tvShowData as any).backdropURLs?.original || (tvShowData as any).backdropPath || null;
 
       // Create or update the TV show
       const tvShow = await prisma.tvShow.upsert({
@@ -782,21 +1347,79 @@ export class StreamingService {
       });
 
       // Connect genres
-      for (const genre of genreConnections) {
-        await prisma.genre.upsert({
-          where: { id: genre.id },
-          update: { name: genre.name },
-          create: { id: genre.id, name: genre.name },
-        });
+      try {
+        for (const genre of genreConnections) {
+          try {
+            // First try to find if the genre already exists by name
+            const existingGenreByName = await prisma.genre.findFirst({
+              where: { name: genre.name }
+            });
 
-        await prisma.tvShow.update({
-          where: { id: tvShow.id },
-          data: {
-            genres: {
-              connect: { id: genre.id },
-            },
-          },
-        });
+            if (existingGenreByName) {
+              // Use the existing genre ID
+              console.log(`Using existing genre ${existingGenreByName.name} with ID ${existingGenreByName.id} instead of ${genre.id}`);
+              genre.id = existingGenreByName.id;
+            } else {
+              // Try to find by ID
+              const existingGenreById = await prisma.genre.findUnique({
+                where: { id: genre.id }
+              });
+
+              if (existingGenreById) {
+                // Update if name has changed
+                if (existingGenreById.name !== genre.name) {
+                  await prisma.genre.update({
+                    where: { id: genre.id },
+                    data: { name: genre.name }
+                  });
+                }
+              } else {
+                // Create new genre
+                try {
+                  await prisma.genre.create({
+                    data: { id: genre.id, name: genre.name }
+                  });
+                } catch (createError: any) {
+                  // If there's a unique constraint error, try one more time to find by name
+                  if (createError.code === 'P2002') {
+                    const retryGenre = await prisma.genre.findFirst({
+                      where: { name: genre.name }
+                    });
+
+                    if (retryGenre) {
+                      genre.id = retryGenre.id;
+                    } else {
+                      // Generate a new ID if we can't create with the provided ID
+                      const newId = `genre_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                      await prisma.genre.create({
+                        data: { id: newId, name: genre.name }
+                      });
+                      genre.id = newId;
+                    }
+                  } else {
+                    throw createError;
+                  }
+                }
+              }
+            }
+
+            // Connect genre to TV show
+            await prisma.tvShow.update({
+              where: { id: tvShow.id },
+              data: {
+                genres: {
+                  connect: { id: genre.id },
+                },
+              },
+            });
+          } catch (error: any) {
+            console.error(`Error processing genre ${genre.name} for TV show:`, error);
+            // Continue with the next genre
+          }
+        }
+      } catch (genreError) {
+        console.error("Error connecting genres for TV show:", genreError);
+        // Continue with the process even if genre connection fails
       }
 
       // Add streaming options
@@ -844,9 +1467,9 @@ export class StreamingService {
           },
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving TV show to database:", error);
-      throw error;
+      throw error instanceof Error ? error : new Error(String(error));
     }
   }
 
@@ -1088,11 +1711,8 @@ export class StreamingService {
       },
     });
 
-    // If the TV show exists and was updated recently, return it
-    if (
-      cachedTvShow &&
-      cachedTvShow.updatedAt > new Date(Date.now() - 24 * 60 * 60 * 1000)
-    ) {
+    // If the TV show exists in the database, return it
+    if (cachedTvShow) {
       console.log("Returning cached TV show data for", id);
       return cachedTvShow;
     }
